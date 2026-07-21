@@ -87,6 +87,8 @@ root.innerHTML = `
 document.body.append(root)
 
 const enterButton = document.querySelector('#enter-world')
+const launchScreen = document.querySelector('#verse-launch')
+const launchEnter = document.querySelector('#verse-launch-enter')
 const closeButton = root.querySelector('.uv-input-close')
 const pairing = root.querySelector('.uv-pairing')
 const pairingStatus = root.querySelector('.uv-pairing-status')
@@ -96,6 +98,8 @@ const phoneEnter = root.querySelector('.uv-phone-enter')
 const qrCanvas = root.querySelector('canvas')
 
 let allowWorldEntry = false
+let launchOpen = true
+let inputConfirmed = false
 let relay = null
 let pairingUrl = null
 let selectorOpen = false
@@ -131,11 +135,47 @@ function hideSelector() {
   root.setAttribute('aria-hidden', 'true')
 }
 
-function enterWorld(mode) {
+function playLaunchSting() {
+  try {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext
+    const context = new AudioContextClass()
+    const master = context.createGain()
+    master.gain.setValueAtTime(.0001, context.currentTime)
+    master.gain.exponentialRampToValueAtTime(.12, context.currentTime + .025)
+    master.gain.exponentialRampToValueAtTime(.0001, context.currentTime + .72)
+    master.connect(context.destination)
+    ;[72, 108, 144].forEach((frequency, index) => {
+      const oscillator = context.createOscillator()
+      const gain = context.createGain()
+      oscillator.type = index === 0 ? 'sine' : 'triangle'
+      oscillator.frequency.setValueAtTime(frequency, context.currentTime)
+      oscillator.frequency.exponentialRampToValueAtTime(frequency * 1.5, context.currentTime + .55)
+      gain.gain.value = .45 / (index + 1)
+      oscillator.connect(gain).connect(master)
+      oscillator.start(context.currentTime + index * .035)
+      oscillator.stop(context.currentTime + .75)
+    })
+    setTimeout(() => context.close().catch(() => {}), 900)
+  } catch {}
+}
+
+function dismissLaunch() {
+  if (!launchOpen) return
+  launchOpen = false
+  launchScreen?.classList.add('is-exiting')
+  playLaunchSting()
+  setTimeout(() => {
+    launchScreen?.classList.add('is-hidden')
+    showSelector()
+  }, 520)
+}
+
+function confirmInput(mode) {
   inputModeController.setMode(mode)
   hideSelector()
-  allowWorldEntry = true
-  queueMicrotask(() => enterButton?.click())
+  inputConfirmed = true
+  document.querySelector('#character-select')?.classList.add('is-input-ready')
+  document.querySelector('.character-card.is-selected')?.focus({ preventScroll: true })
 }
 
 function stopPhoneRelay() {
@@ -203,7 +243,7 @@ root.querySelectorAll('[data-mode]').forEach((button) => {
     else {
       stopPhoneRelay()
       updateWorldControllerPill(mode === 'gamepad' ? 'GAMEPAD READY' : 'KEYBOARD READY', mode === 'gamepad')
-      enterWorld(mode)
+      confirmInput(mode)
     }
   })
 })
@@ -212,10 +252,18 @@ root.querySelector('.uv-pairing-back').addEventListener('click', () => {
   stopPhoneRelay()
   showSelector()
 })
-phoneEnter.addEventListener('click', () => enterWorld('phone'))
+phoneEnter.addEventListener('click', () => confirmInput('phone'))
 closeButton.addEventListener('click', hideSelector)
+launchEnter?.addEventListener('click', dismissLaunch)
 
 enterButton?.addEventListener('click', (event) => {
+  if (launchOpen) {
+    event.preventDefault()
+    event.stopImmediatePropagation()
+    dismissLaunch()
+    return
+  }
+  if (inputConfirmed) return
   if (allowWorldEntry) {
     allowWorldEntry = false
     return
@@ -226,6 +274,12 @@ enterButton?.addEventListener('click', (event) => {
 }, true)
 
 window.addEventListener('keydown', (event) => {
+  if (launchOpen && ['Enter', 'Space', 'KeyX'].includes(event.code)) {
+    event.preventDefault()
+    event.stopImmediatePropagation()
+    dismissLaunch()
+    return
+  }
   if (!selectorOpen) return
   if (event.code === 'Escape') {
     event.preventDefault()
