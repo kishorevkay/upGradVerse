@@ -54,6 +54,8 @@ Inside the Verse Fight Ring:
 
 Codex was the production partner throughout the Build Week extension. It inspected and preserved the approved world scale, camera and DualSense feel; implemented driving physics and vehicle camera modes; integrated licensed GLB assets; built the visual Skill Shops and six-character roster; created the multi-input and phone-controller system; added the city atmosphere, endless skyline, metro and aerial traffic; and built the combat simulation. Codex also ran production builds, local browser QA, performance checks, asset-attribution checks and prepared the submission package.
 
+The primary build session ran in Codex on GPT-5.6 Sol with high reasoning. GPT-5.6 translated Kish's rapid visual and controller play-test feedback into scoped code changes, coordinated parallel implementation work, diagnosed animation and physics regressions, and verified each production handoff. The shipped app does not call the OpenAI API at runtime; GPT-5.6 was the reasoning and engineering layer used to create it.
+
 Kish directed the product concept, learning model, interaction feel, visual taste and iterative play-test feedback. Codex translated those decisions into the working implementation.
 
 ## Pre-existing work versus Build Week work
