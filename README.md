@@ -37,6 +37,17 @@ For the phone controller, connect the computer and phone to the same Wi-Fi netwo
 - `R3` / `V`: cycle vehicle camera
 - `P` / Options: pause
 
+Inside the Verse Fight Ring:
+
+- `WASD` / left stick: move around the octagon
+- `J` / Cross: jab
+- `H` / Square: hook
+- `U` / L1: uppercut
+- `K` / Triangle: kick
+- `C` / Circle: dodge
+- `Space` / R2: jump strike
+- `Esc` / Options: return to the city
+
 ## How Codex was used
 
 Codex was the production partner throughout the Build Week extension. It inspected and preserved the approved world scale, camera and DualSense feel; implemented driving physics and vehicle camera modes; integrated licensed GLB assets; built the two AI Skill Shops; created the multi-input and phone-controller system; added the city atmosphere, metro and aerial traffic; and built the combat simulation. Codex also ran production builds, local browser QA, performance checks, asset-attribution checks and prepared the submission package.

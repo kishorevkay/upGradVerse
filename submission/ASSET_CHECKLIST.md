@@ -40,15 +40,15 @@ Project root: `/Users/kishorekumar/upGradVerse`
 
 Save final captures under `submission/screenshots/`.
 
-- [ ] `01-cover-16x9.png` — clean world hero with character, upGrad building, and city depth.
-- [ ] `02-input-selector.png` — liquid-glass keyboard/gamepad/phone choice.
-- [ ] `03-world-gameplay.png` — third-person traversal with HUD and destination marker.
-- [ ] `04-driving.png` — real car model in motion with vehicle HUD, metro/flying traffic visible if composition allows.
-- [ ] `05-chatgpt-skillshop.png` — strongest visual routing or repair moment.
-- [ ] `06-claude-studio.png` — strongest evidence or artifact moment.
+- [x] `01-cover-16x9.png` — clean production world hero capture.
+- [x] `02-input-selector.png` — liquid-glass keyboard/gamepad/phone choice.
+- [x] `03-world-gameplay.png` — third-person traversal with HUD and destination marker.
+- [x] `04-driving.png` — mounted-bike production capture with vehicle HUD.
+- [x] `05-chatgpt-skillshop.png` — ChatGPT routing lab production capture.
+- [x] `06-claude-studio.png` — Claude Artifact Studio production capture.
 - [ ] `07-phone-controller.png` — desktop plus phone controls; do not publish a live reusable pairing session.
 - [ ] `08-skillshop-map.png` — navigation panel with multiple destinations.
-- [ ] `09-fight-ring-world.png` — physical ring and 3D human-versus-machine combat HUD.
+- [x] `09-fight-ring-world.png` — physical ring and 3D human-versus-machine combat HUD.
 - [ ] Optional `10-build-process.png` — concept image, model, code, and playable result in one frame.
 
 ## Video and audio still needed

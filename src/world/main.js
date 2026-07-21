@@ -2129,6 +2129,7 @@ function registerVehicleImpact(vehicle, severity = 1) {
   vehicle.collisionTimer = .48
   vehicle.speed *= -.22
   vehicle.velocity.multiplyScalar(-.18)
+  audio.collision(severity)
   playRumble(state.activeGamepad, 'impact').catch(() => {})
   vehicle.visualRoot.position.y = Math.min(.11, severity * .08)
 }
@@ -2512,10 +2513,18 @@ function animate() {
   transportUpgrade.update(dt, elapsed)
   arenaGame.update(dt)
   const drivenVehicle=state.drivingVehicle
+  const drivenSpeedRatio=drivenVehicle?THREE.MathUtils.clamp(Math.abs(drivenVehicle.speed)/drivenVehicle.config.maxForward,0,1):0
+  const drivenDrift=drivenVehicle?THREE.MathUtils.clamp(drivenSpeedRatio*Math.abs(drivenVehicle.steeringInput)*(drivenVehicle.handbrakeInput?.72:.28),0,1):0
   audio.update({
     driving:Boolean(drivenVehicle),
-    speedRatio:drivenVehicle?THREE.MathUtils.clamp(Math.abs(drivenVehicle.speed)/drivenVehicle.config.maxForward,0,1):0,
+    vehicleType:drivenVehicle?.classId||drivenVehicle?.config.kind||'sedan',
+    speedRatio:drivenSpeedRatio,
+    speed:drivenVehicle?.speed||0,
     throttle:drivenVehicle?.throttleInput||0,
+    brake:drivenVehicle?.brakeInput||0,
+    handbrake:Boolean(drivenVehicle?.handbrakeInput),
+    steering:drivenVehicle?.steeringInput||0,
+    driftIntensity:drivenDrift,
   })
   playerShadow.position.x=player.position.x;playerShadow.position.z=player.position.z;playerShadow.scale.setScalar(1-Math.min(state.jumpOffset/1.8,.34))
   const chatgptPulse = .96 + Math.sin(elapsed * 2.1) * .045

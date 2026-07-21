@@ -1,14 +1,51 @@
 const AudioContextClass = window.AudioContext || window.webkitAudioContext
 
+const ENGINE_PROFILES = Object.freeze({
+  supercar: { idle: 52, rev: 318, rumble: .48, combustion: .72, intake: .76, exhaust: .46, whine: .08, cutoff: 2350 },
+  suv: { idle: 37, rev: 192, rumble: .82, combustion: .58, intake: .46, exhaust: .78, whine: .03, cutoff: 1460 },
+  sedan: { idle: 43, rev: 226, rumble: .58, combustion: .52, intake: .44, exhaust: .46, whine: .06, cutoff: 1750 },
+  ev: { idle: 66, rev: 520, rumble: .06, combustion: .04, intake: .16, exhaust: .03, whine: .92, cutoff: 3900 },
+  bike: { idle: 58, rev: 382, rumble: .34, combustion: .82, intake: .7, exhaust: .58, whine: .12, cutoff: 2850 },
+})
+
 function makeNoiseBuffer(context, seconds = 2) {
   const buffer = context.createBuffer(1, context.sampleRate * seconds, context.sampleRate)
   const data = buffer.getChannelData(0)
   let value = 0
   for (let index = 0; index < data.length; index += 1) {
-    value = value * .985 + (Math.random() * 2 - 1) * .15
+    value = value * .965 + (Math.random() * 2 - 1) * .2
     data[index] = value
   }
   return buffer
+}
+
+function setSmooth(parameter, value, now, response = .045) {
+  parameter.cancelScheduledValues(now)
+  parameter.setTargetAtTime(value, now, response)
+}
+
+function loopNoise(context, buffer, destination, { type = 'bandpass', frequency = 800, q = .7, gain = 0 } = {}) {
+  const source = context.createBufferSource()
+  const filter = context.createBiquadFilter()
+  const level = context.createGain()
+  source.buffer = buffer
+  source.loop = true
+  filter.type = type
+  filter.frequency.value = frequency
+  filter.Q.value = q
+  level.gain.value = gain
+  source.connect(filter).connect(level).connect(destination)
+  source.start()
+  return { source, filter, gain: level }
+}
+
+function profileFor(vehicleType = '') {
+  const key = String(vehicleType).toLowerCase()
+  if (key.includes('bike') || key.includes('motor')) return ENGINE_PROFILES.bike
+  if (key.includes('super') || key.includes('apex') || key.includes('r8')) return ENGINE_PROFILES.supercar
+  if (key.includes('suv') || key.includes('defender') || key.includes('terra')) return ENGINE_PROFILES.suv
+  if (key.includes('electric') || key === 'ev' || key.includes('pulse')) return ENGINE_PROFILES.ev
+  return ENGINE_PROFILES.sedan
 }
 
 export class AudioDirector {
@@ -17,12 +54,14 @@ export class AudioDirector {
     this.enabled = true
     this.started = false
     this.onState = onState
-    this.timer = null
-    this.nextStepAt = 0
-    this.step = 0
     this.engine = null
     this.noiseBuffer = null
     this.track = null
+    this.lastGear = 0
+    this.lastBrake = 0
+    this.lastHandbrake = false
+    this.lastDriving = false
+    this.lastTransientAt = -10
   }
 
   async start() {
@@ -30,8 +69,10 @@ export class AudioDirector {
     if (!this.context) this.createGraph()
     if (this.context.state === 'suspended') await this.context.resume()
     this.started = true
-    this.track.volume = this.enabled ? .48 : 0
-    await this.track.play().catch(() => false)
+    if (this.track) {
+      this.track.volume = this.enabled ? .48 : 0
+      await this.track.play().catch(() => false)
+    }
     this.setEnabled(this.enabled)
     this.onState({ enabled: this.enabled, started: true })
     return true
@@ -40,30 +81,34 @@ export class AudioDirector {
   createGraph() {
     const context = new AudioContextClass()
     this.context = context
-    this.noiseBuffer = makeNoiseBuffer(context, 2)
+    this.noiseBuffer = makeNoiseBuffer(context, 2.5)
 
     this.master = context.createGain()
-    this.master.gain.value = .7
+    this.master.gain.value = .72
     const compressor = context.createDynamicsCompressor()
-    compressor.threshold.value = -18
-    compressor.knee.value = 18
-    compressor.ratio.value = 5
-    compressor.attack.value = .008
-    compressor.release.value = .22
+    compressor.threshold.value = -16
+    compressor.knee.value = 20
+    compressor.ratio.value = 4
+    compressor.attack.value = .006
+    compressor.release.value = .28
     this.master.connect(compressor).connect(context.destination)
 
-    this.radioGain = context.createGain()
-    this.radioGain.gain.value = 0
-    this.radioGain.connect(this.master)
     this.ambienceGain = context.createGain()
-    this.ambienceGain.gain.value = .28
+    this.ambienceGain.gain.value = .24
     this.ambienceGain.connect(this.master)
+
     this.vehicleGain = context.createGain()
     this.vehicleGain.gain.value = 0
-    this.vehicleGain.connect(this.master)
+    const vehicleTone = context.createBiquadFilter()
+    vehicleTone.type = 'lowshelf'
+    vehicleTone.frequency.value = 180
+    vehicleTone.gain.value = 3.5
+    this.vehicleGain.connect(vehicleTone).connect(this.master)
+    this.vehicleTone = vehicleTone
 
     this.createAtmosphere()
-    this.createEngine()
+    this.createVehicleSoundscape()
+
     this.track = new Audio('/assets/audio/everything-i-hate-punk-vocal.mp3')
     this.track.loop = true
     this.track.preload = 'auto'
@@ -71,149 +116,164 @@ export class AudioDirector {
   }
 
   createAtmosphere() {
-    const context = this.context
-    const wind = context.createBufferSource()
-    wind.buffer = this.noiseBuffer
-    wind.loop = true
-    const windFilter = context.createBiquadFilter()
-    windFilter.type = 'lowpass'
-    windFilter.frequency.value = 680
-    const windGain = context.createGain()
-    windGain.gain.value = .085
-    wind.connect(windFilter).connect(windGain).connect(this.ambienceGain)
-    wind.start()
+    const wind = loopNoise(this.context, this.noiseBuffer, this.ambienceGain, {
+      type: 'lowpass', frequency: 720, q: .4, gain: .072,
+    })
+    this.atmosphereWind = wind
 
-    const traffic = context.createOscillator()
-    traffic.type = 'sawtooth'
-    traffic.frequency.value = 44
-    const trafficFilter = context.createBiquadFilter()
+    const traffic = this.context.createOscillator()
+    const trafficFilter = this.context.createBiquadFilter()
+    const trafficGain = this.context.createGain()
+    traffic.type = 'triangle'
+    traffic.frequency.value = 42
     trafficFilter.type = 'lowpass'
-    trafficFilter.frequency.value = 120
-    const trafficGain = context.createGain()
-    trafficGain.gain.value = .045
+    trafficFilter.frequency.value = 105
+    trafficGain.gain.value = .03
     traffic.connect(trafficFilter).connect(trafficGain).connect(this.ambienceGain)
     traffic.start()
 
     window.setInterval(() => {
       if (!this.started || !this.enabled || this.context.state !== 'running') return
       const now = this.context.currentTime
-      const chatter = this.context.createBufferSource()
-      chatter.buffer = this.noiseBuffer
+      const source = this.context.createBufferSource()
       const band = this.context.createBiquadFilter()
-      band.type = 'bandpass'
-      band.frequency.value = 720 + Math.random() * 1250
-      band.Q.value = 2.8
       const gain = this.context.createGain()
-      gain.gain.setValueAtTime(0, now)
-      gain.gain.linearRampToValueAtTime(.02 + Math.random() * .018, now + .08)
-      gain.gain.exponentialRampToValueAtTime(.0001, now + .42 + Math.random() * .45)
-      chatter.connect(band).connect(gain).connect(this.ambienceGain)
-      chatter.start(now, Math.random(), .9)
-    }, 2350)
+      source.buffer = this.noiseBuffer
+      band.type = 'bandpass'
+      band.frequency.value = 760 + Math.random() * 1100
+      band.Q.value = 3.2
+      gain.gain.setValueAtTime(.0001, now)
+      gain.gain.exponentialRampToValueAtTime(.014 + Math.random() * .012, now + .06)
+      gain.gain.exponentialRampToValueAtTime(.0001, now + .38 + Math.random() * .35)
+      source.connect(band).connect(gain).connect(this.ambienceGain)
+      source.start(now, Math.random() * 1.2, .85)
+    }, 2850)
   }
 
-  createEngine() {
+  createVehicleSoundscape() {
     const context = this.context
-    const filter = context.createBiquadFilter()
-    filter.type = 'lowpass'
-    filter.frequency.value = 540
-    const low = context.createOscillator()
-    low.type = 'sawtooth'
-    low.frequency.value = 48
-    const high = context.createOscillator()
-    high.type = 'square'
-    high.frequency.value = 96
-    const highGain = context.createGain()
-    highGain.gain.value = .16
-    low.connect(filter)
-    high.connect(highGain).connect(filter)
-    filter.connect(this.vehicleGain)
-    low.start()
-    high.start()
-    this.engine = { low, high, filter }
-  }
+    const engineBus = context.createGain()
+    const engineFilter = context.createBiquadFilter()
+    engineBus.gain.value = .7
+    engineFilter.type = 'lowpass'
+    engineFilter.frequency.value = 1500
+    engineFilter.Q.value = .45
+    engineBus.connect(engineFilter).connect(this.vehicleGain)
 
-  scheduleRadio() {
-    if (!this.context || this.context.state !== 'running') return
-    const stepDuration = 60 / 96 / 4
-    while (this.nextStepAt < this.context.currentTime + .22) {
-      this.scheduleBeat(this.step, this.nextStepAt)
-      this.step = (this.step + 1) % 64
-      this.nextStepAt += stepDuration
+    const waveReal = new Float32Array([0, 1, .22, .12, .06, .03])
+    const waveImag = new Float32Array(waveReal.length)
+    const combustionWave = context.createPeriodicWave(waveReal, waveImag, { disableNormalization: false })
+
+    const rumble = context.createOscillator()
+    const rumbleGain = context.createGain()
+    rumble.type = 'sine'
+    rumble.frequency.value = 42
+    rumbleGain.gain.value = .08
+    rumble.connect(rumbleGain).connect(engineBus)
+
+    const combustion = context.createOscillator()
+    const combustionGain = context.createGain()
+    combustion.setPeriodicWave(combustionWave)
+    combustion.frequency.value = 84
+    combustionGain.gain.value = .07
+    combustion.connect(combustionGain).connect(engineBus)
+
+    const harmonic = context.createOscillator()
+    const harmonicGain = context.createGain()
+    harmonic.type = 'triangle'
+    harmonic.frequency.value = 168
+    harmonicGain.gain.value = .025
+    harmonic.connect(harmonicGain).connect(engineBus)
+
+    const motor = context.createOscillator()
+    const motorGain = context.createGain()
+    const motorFilter = context.createBiquadFilter()
+    motor.type = 'sine'
+    motor.frequency.value = 210
+    motorGain.gain.value = .001
+    motorFilter.type = 'bandpass'
+    motorFilter.frequency.value = 1300
+    motorFilter.Q.value = .7
+    motor.connect(motorFilter).connect(motorGain).connect(engineBus)
+
+    rumble.start()
+    combustion.start()
+    harmonic.start()
+    motor.start()
+
+    const intake = loopNoise(context, this.noiseBuffer, engineBus, {
+      type: 'bandpass', frequency: 1180, q: .8, gain: .001,
+    })
+    const exhaust = loopNoise(context, this.noiseBuffer, engineBus, {
+      type: 'lowpass', frequency: 240, q: .5, gain: .001,
+    })
+    const road = loopNoise(context, this.noiseBuffer, this.vehicleGain, {
+      type: 'bandpass', frequency: 230, q: .45, gain: .001,
+    })
+    const wind = loopNoise(context, this.noiseBuffer, this.vehicleGain, {
+      type: 'highpass', frequency: 1150, q: .35, gain: .001,
+    })
+    const tire = loopNoise(context, this.noiseBuffer, this.vehicleGain, {
+      type: 'bandpass', frequency: 2450, q: 1.1, gain: .001,
+    })
+
+    this.engine = {
+      engineBus, engineFilter,
+      rumble, rumbleGain,
+      combustion, combustionGain,
+      harmonic, harmonicGain,
+      motor, motorFilter, motorGain,
+      intake, exhaust, road, wind, tire,
     }
   }
 
-  scheduleBeat(step, time) {
-    const beat = step % 16
-    if ([0, 6, 8, 11].includes(beat)) this.kick(time, beat === 0 ? .38 : .25)
-    if ([4, 12].includes(beat)) this.snare(time, .18)
-    if (beat % 2 === 0) this.hat(time, beat % 4 === 2 ? .055 : .035)
-
-    const bassNotes = [46.25, 46.25, 55, 61.74, 41.2, 41.2, 49, 55]
-    if (beat % 2 === 0) this.tone(time, bassNotes[(step / 2 | 0) % bassNotes.length], .21, 'sawtooth', .075, 520)
-
-    if (beat === 0 || beat === 8) {
-      const roots = beat === 0 ? [110, 138.59, 164.81] : [98, 123.47, 146.83]
-      roots.forEach((frequency, index) => this.tone(time + index * .012, frequency, 1.15, 'triangle', .028, 1450))
-    }
-    if ([3, 7, 10, 14].includes(beat)) {
-      const lead = [329.63, 369.99, 277.18, 246.94][(step / 4 | 0) % 4]
-      this.tone(time, lead, .12, 'square', .012, 2300)
-    }
-  }
-
-  tone(time, frequency, duration, type, volume, cutoff) {
-    const oscillator = this.context.createOscillator()
+  playNoiseTransient({ duration = .2, gain = .1, frequency = 900, type = 'bandpass', q = .7 } = {}) {
+    if (!this.context || this.context.state !== 'running' || !this.enabled) return
+    const now = this.context.currentTime
+    const source = this.context.createBufferSource()
     const filter = this.context.createBiquadFilter()
-    const gain = this.context.createGain()
+    const level = this.context.createGain()
+    source.buffer = this.noiseBuffer
+    filter.type = type
+    filter.frequency.value = frequency
+    filter.Q.value = q
+    level.gain.setValueAtTime(Math.max(.0001, gain), now)
+    level.gain.exponentialRampToValueAtTime(.0001, now + duration)
+    source.connect(filter).connect(level).connect(this.vehicleGain)
+    source.start(now, Math.random() * 1.5, duration + .03)
+  }
+
+  playPitchTransient({ from = 170, to = 72, duration = .18, gain = .08, type = 'sine' } = {}) {
+    if (!this.context || this.context.state !== 'running' || !this.enabled) return
+    const now = this.context.currentTime
+    const oscillator = this.context.createOscillator()
+    const level = this.context.createGain()
     oscillator.type = type
-    oscillator.frequency.setValueAtTime(frequency, time)
-    filter.type = 'lowpass'
-    filter.frequency.value = cutoff
-    gain.gain.setValueAtTime(.0001, time)
-    gain.gain.exponentialRampToValueAtTime(volume, time + .018)
-    gain.gain.exponentialRampToValueAtTime(.0001, time + duration)
-    oscillator.connect(filter).connect(gain).connect(this.radioGain)
-    oscillator.start(time)
-    oscillator.stop(time + duration + .04)
+    oscillator.frequency.setValueAtTime(Math.max(20, from), now)
+    oscillator.frequency.exponentialRampToValueAtTime(Math.max(20, to), now + duration)
+    level.gain.setValueAtTime(Math.max(.0001, gain), now)
+    level.gain.exponentialRampToValueAtTime(.0001, now + duration)
+    oscillator.connect(level).connect(this.vehicleGain)
+    oscillator.start(now)
+    oscillator.stop(now + duration + .03)
   }
 
-  kick(time, volume) {
-    const oscillator = this.context.createOscillator()
-    const gain = this.context.createGain()
-    oscillator.frequency.setValueAtTime(120, time)
-    oscillator.frequency.exponentialRampToValueAtTime(42, time + .15)
-    gain.gain.setValueAtTime(volume, time)
-    gain.gain.exponentialRampToValueAtTime(.0001, time + .2)
-    oscillator.connect(gain).connect(this.radioGain)
-    oscillator.start(time)
-    oscillator.stop(time + .22)
+  shiftTransient(speedRatio, isElectric = false) {
+    if (!this.context || this.context.currentTime - this.lastTransientAt < .22) return
+    this.lastTransientAt = this.context.currentTime
+    if (isElectric) {
+      this.playPitchTransient({ from: 1050 + speedRatio * 900, to: 620 + speedRatio * 520, duration: .14, gain: .035, type: 'sine' })
+      return
+    }
+    this.playPitchTransient({ from: 118, to: 52, duration: .11, gain: .09, type: 'sine' })
+    this.playNoiseTransient({ duration: .13, gain: .055, frequency: 1180 + speedRatio * 900, type: 'highpass' })
+    window.setTimeout(() => this.playPitchTransient({ from: 720, to: 1450, duration: .17, gain: .027, type: 'sine' }), 45)
   }
 
-  snare(time, volume) {
-    const source = this.context.createBufferSource()
-    source.buffer = this.noiseBuffer
-    const filter = this.context.createBiquadFilter()
-    filter.type = 'highpass'
-    filter.frequency.value = 1350
-    const gain = this.context.createGain()
-    gain.gain.setValueAtTime(volume, time)
-    gain.gain.exponentialRampToValueAtTime(.0001, time + .12)
-    source.connect(filter).connect(gain).connect(this.radioGain)
-    source.start(time, 0, .14)
-  }
-
-  hat(time, volume) {
-    const source = this.context.createBufferSource()
-    source.buffer = this.noiseBuffer
-    const filter = this.context.createBiquadFilter()
-    filter.type = 'highpass'
-    filter.frequency.value = 5200
-    const gain = this.context.createGain()
-    gain.gain.setValueAtTime(volume, time)
-    gain.gain.exponentialRampToValueAtTime(.0001, time + .045)
-    source.connect(filter).connect(gain).connect(this.radioGain)
-    source.start(time, .2, .06)
+  collision(severity = .6) {
+    const amount = Math.min(1, Math.max(.12, severity))
+    this.playPitchTransient({ from: 92 + amount * 38, to: 34, duration: .18 + amount * .18, gain: .11 + amount * .13, type: 'sine' })
+    this.playNoiseTransient({ duration: .16 + amount * .16, gain: .08 + amount * .14, frequency: 260 + amount * 440, type: 'lowpass', q: .5 })
   }
 
   setEnabled(value) {
@@ -223,8 +283,7 @@ export class AudioDirector {
       return
     }
     const now = this.context.currentTime
-    this.master.gain.cancelScheduledValues(now)
-    this.master.gain.setTargetAtTime(value ? .7 : .0001, now, .035)
+    setSmooth(this.master.gain, value ? .72 : .0001, now, .035)
     if (this.track) this.track.volume = value ? .48 : 0
     this.onState({ enabled: value, started: this.started })
   }
@@ -237,13 +296,62 @@ export class AudioDirector {
     this.setEnabled(!this.enabled)
   }
 
-  update({ driving = false, speedRatio = 0, throttle = 0 } = {}) {
+  update({
+    driving = false,
+    vehicleType = 'sedan',
+    speedRatio = 0,
+    speed = 0,
+    throttle = 0,
+    brake = 0,
+    handbrake = false,
+    steering = 0,
+    driftIntensity = 0,
+  } = {}) {
     if (!this.context || !this.engine) return
     const now = this.context.currentTime
-    const targetGain = driving && this.enabled ? .055 + speedRatio * .13 + throttle * .055 : .0001
-    this.vehicleGain.gain.setTargetAtTime(targetGain, now, .045)
-    this.engine.low.frequency.setTargetAtTime(48 + speedRatio * 132 + throttle * 28, now, .035)
-    this.engine.high.frequency.setTargetAtTime(96 + speedRatio * 264 + throttle * 56, now, .035)
-    this.engine.filter.frequency.setTargetAtTime(360 + speedRatio * 1250, now, .04)
+    const profile = profileFor(vehicleType)
+    const ratio = Math.min(1, Math.max(0, speedRatio))
+    const load = Math.min(1, Math.max(0, throttle))
+    const braking = Math.min(1, Math.max(0, brake))
+    const drift = Math.min(1, Math.max(0, driftIntensity, handbrake ? ratio * Math.abs(steering) : 0))
+    const rpmCurve = Math.pow(ratio, .72)
+    const rpm = profile.idle + profile.rev * rpmCurve + load * profile.rev * .12
+    const isElectric = profile === ENGINE_PROFILES.ev
+
+    setSmooth(this.vehicleGain.gain, driving && this.enabled ? .42 : .0001, now, driving ? .055 : .12)
+    setSmooth(this.engine.rumble.frequency, rpm, now, .035)
+    setSmooth(this.engine.combustion.frequency, rpm * (isElectric ? 1.35 : 2), now, .03)
+    setSmooth(this.engine.harmonic.frequency, rpm * (isElectric ? 2.6 : 4), now, .025)
+    setSmooth(this.engine.motor.frequency, 170 + rpmCurve * 1780 + load * 210, now, .028)
+    setSmooth(this.engine.engineFilter.frequency, 460 + ratio * profile.cutoff + load * 720, now, .045)
+    setSmooth(this.engine.rumbleGain.gain, profile.rumble * (.09 + load * .055), now, .05)
+    setSmooth(this.engine.combustionGain.gain, profile.combustion * (.055 + load * .07), now, .04)
+    setSmooth(this.engine.harmonicGain.gain, profile.combustion * (.012 + ratio * .025), now, .04)
+    setSmooth(this.engine.motorGain.gain, profile.whine * (.015 + ratio * .1 + load * .025), now, .04)
+    setSmooth(this.engine.intake.filter.frequency, 760 + ratio * 2100, now, .06)
+    setSmooth(this.engine.intake.gain.gain, profile.intake * load * (.018 + ratio * .045), now, .055)
+    setSmooth(this.engine.exhaust.filter.frequency, 150 + ratio * 380, now, .06)
+    setSmooth(this.engine.exhaust.gain.gain, profile.exhaust * (.018 + load * .045 + ratio * .025), now, .06)
+    setSmooth(this.engine.road.filter.frequency, 150 + ratio * 720, now, .08)
+    setSmooth(this.engine.road.gain.gain, driving ? .008 + ratio * .075 : .0001, now, .09)
+    setSmooth(this.engine.wind.filter.frequency, 930 + ratio * 2650, now, .08)
+    setSmooth(this.engine.wind.gain.gain, driving ? Math.pow(ratio, 1.55) * .065 : .0001, now, .09)
+    setSmooth(this.engine.tire.filter.frequency, 1750 + ratio * 2350, now, .045)
+    setSmooth(this.engine.tire.gain.gain, driving ? drift * (.08 + ratio * .18) + braking * ratio * .018 : .0001, now, .035)
+
+    const gear = driving ? Math.min(5, Math.max(1, Math.floor(ratio * 5.15) + 1)) : 0
+    if (driving && this.lastDriving && gear !== this.lastGear && ratio > .12 && load > .28) this.shiftTransient(ratio, isElectric)
+    if (driving && braking > .48 && this.lastBrake <= .48 && Math.abs(speed) > 2.5) {
+      this.playNoiseTransient({ duration: .19, gain: .045 + ratio * .055, frequency: 2250, type: 'bandpass', q: 1.4 })
+    }
+    if (driving && handbrake && !this.lastHandbrake && ratio > .14) {
+      this.playPitchTransient({ from: 86, to: 48, duration: .12, gain: .055, type: 'triangle' })
+      this.playNoiseTransient({ duration: .18, gain: .07 + ratio * .06, frequency: 3000, type: 'bandpass', q: 1.2 })
+    }
+
+    this.lastGear = gear
+    this.lastBrake = braking
+    this.lastHandbrake = Boolean(handbrake)
+    this.lastDriving = Boolean(driving)
   }
 }

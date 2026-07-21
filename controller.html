@@ -2,53 +2,100 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
-  <meta name="theme-color" content="#09080a" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content" />
+  <meta name="theme-color" content="#12070a" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
   <title>upGradVerse Phone Controller</title>
 </head>
-<body>
+<body data-control-mode="world">
   <main class="phone-controller" id="phone-controller">
-    <header class="phone-topbar">
-      <img src="/assets/upgrad-logo.png" alt="upGrad" />
-      <div><strong>PHONE CONTROLLER</strong><span id="phone-session">PAIRING…</span></div>
-      <i class="phone-status-light" id="phone-status-light"></i>
+    <div class="phone-aurora phone-aurora-a"></div>
+    <div class="phone-aurora phone-aurora-b"></div>
+
+    <header class="phone-topbar glass-panel">
+      <div class="phone-brand">
+        <img src="/assets/upgrad-logo.png" alt="upGrad" />
+        <span><strong>VERSE LINK</strong><small id="phone-session">PAIRING…</small></span>
+      </div>
+      <div class="mode-switch" role="group" aria-label="Controller action labels">
+        <button type="button" class="is-active" data-control-mode="world">WORLD</button>
+        <button type="button" data-control-mode="fight">FIGHT</button>
+      </div>
+      <div class="phone-status"><i class="phone-status-light" id="phone-status-light"></i><span id="phone-status-copy">LINKING</span></div>
     </header>
 
-    <section class="phone-stage" aria-label="upGradVerse touch gamepad">
-      <div class="phone-connection" id="phone-connection" role="status">
+    <section class="phone-stage" aria-label="upGradVerse landscape touch gamepad">
+      <div class="phone-connection glass-panel" id="phone-connection" role="status">
         <strong>CONNECTING TO UPGRADVERSE</strong>
-        <span>Keep this phone and the game computer on the same Wi-Fi network.</span>
+        <span>Keep this phone and the game computer on the same Wi-Fi.</span>
       </div>
 
-      <div class="touch-zone touch-zone-left">
-        <span class="touch-label">MOVE</span>
-        <div class="touch-stick" data-stick="move"><i></i><b></b></div>
+      <div class="shoulder-bank shoulder-bank-left" aria-label="Left shoulder buttons">
+        <button class="shoulder" data-button="6"><strong>L2</strong><small data-world-label="BRAKE" data-fight-label="GUARD">BRAKE</small></button>
+        <button class="shoulder" data-button="4"><strong>L1</strong><small data-world-label="LOOK BACK" data-fight-label="DODGE">LOOK BACK</small></button>
+      </div>
+      <div class="shoulder-bank shoulder-bank-right" aria-label="Right shoulder buttons">
+        <button class="shoulder" data-button="5"><strong>R1</strong><small data-world-label="ACTION" data-fight-label="HEAVY">ACTION</small></button>
+        <button class="shoulder shoulder-accent" data-button="7"><strong>R2</strong><small data-world-label="SPRINT / DRIVE" data-fight-label="STRIKE">SPRINT / DRIVE</small></button>
+      </div>
+
+      <div class="control-bank control-bank-left">
+        <div class="control-module stick-module">
+          <span class="touch-label">MOVE</span>
+          <div class="touch-stick" data-stick="move" role="application" aria-label="Movement analog stick"><i></i><b></b></div>
+        </div>
+
+        <div class="control-module dpad-module">
+          <span class="touch-label">D-PAD</span>
+          <div class="dpad" role="group" aria-label="Directional pad">
+            <button class="dpad-button dpad-up" data-direction="up" data-button="12" aria-label="Up">▲</button>
+            <button class="dpad-button dpad-left" data-direction="left" data-button="14" aria-label="Left">◀</button>
+            <i aria-hidden="true"></i>
+            <button class="dpad-button dpad-right" data-direction="right" data-button="15" aria-label="Right">▶</button>
+            <button class="dpad-button dpad-down" data-direction="down" data-button="13" aria-label="Down">▼</button>
+          </div>
+        </div>
       </div>
 
       <div class="phone-centre-controls">
-        <button class="utility-button" data-button="9"><span>☰</span><small>PAUSE</small></button>
-        <button class="utility-button" data-button="11"><span>◎</span><small>CAMERA</small></button>
+        <button class="utility-button glass-panel" data-button="9"><span>Ⅱ</span><small>PAUSE</small></button>
+        <div class="centre-mark" aria-hidden="true"><i></i><b>UV</b></div>
+        <button class="utility-button glass-panel" data-button="11"><span>◎</span><small>CAMERA</small></button>
       </div>
 
-      <div class="touch-zone touch-zone-right">
-        <span class="touch-label">CAMERA</span>
-        <div class="touch-stick" data-stick="camera"><i></i><b></b></div>
-      </div>
+      <div class="control-bank control-bank-right">
+        <div class="control-module stick-module camera-module">
+          <span class="touch-label">LOOK</span>
+          <div class="touch-stick" data-stick="camera" role="application" aria-label="Camera analog stick"><i></i><b></b></div>
+        </div>
 
-      <button class="shoulder shoulder-left" data-button="6"><strong>L2</strong><small>BRAKE</small></button>
-      <button class="shoulder shoulder-right" data-button="7"><strong>R2</strong><small>SPRINT / DRIVE</small></button>
-
-      <div class="face-buttons" aria-label="Action buttons">
-        <button class="face-button triangle" data-button="3" aria-label="Interact"><b>△</b><small>INTERACT</small></button>
-        <button class="face-button circle" data-button="1" aria-label="Back"><b>○</b><small>BACK</small></button>
-        <button class="face-button cross" data-button="0" aria-label="Jump"><b>×</b><small>JUMP</small></button>
-        <button class="face-button square" data-button="2" aria-label="Handbrake"><b>□</b><small>DRIFT</small></button>
+        <div class="face-module">
+          <span class="touch-label">ACTIONS</span>
+          <div class="face-buttons" aria-label="Action buttons">
+            <button class="face-button triangle" data-button="3" aria-label="Interact"><b>△</b><small data-world-label="ENTER" data-fight-label="KICK">ENTER</small></button>
+            <button class="face-button circle" data-button="1" aria-label="Back"><b>○</b><small data-world-label="BACK" data-fight-label="DODGE">BACK</small></button>
+            <button class="face-button cross" data-button="0" aria-label="Jump"><b>×</b><small data-world-label="JUMP" data-fight-label="JAB">JUMP</small></button>
+            <button class="face-button square" data-button="2" aria-label="Handbrake"><b>□</b><small data-world-label="DRIFT" data-fight-label="HOOK">DRIFT</small></button>
+          </div>
+        </div>
       </div>
     </section>
 
-    <footer><span>Same Wi-Fi required</span><b>upGradVerse Remote · Prototype</b></footer>
+    <footer><span>SAME WI-FI · LOCAL LINK</span><b>HAPTICS <i id="haptic-state">READY</i></b></footer>
   </main>
+
+  <aside class="rotate-overlay" id="rotate-overlay" role="dialog" aria-modal="true" aria-labelledby="rotate-title">
+    <div class="rotate-card glass-panel">
+      <div class="rotate-phone"><i></i><b>↻</b></div>
+      <span>LANDSCAPE CONTROLLER</span>
+      <h1 id="rotate-title">Rotate your phone</h1>
+      <p>Turn your phone sideways for the full gamepad. Keep rotation lock off.</p>
+      <button type="button" id="rotate-action">GO LANDSCAPE</button>
+      <small>Both devices must stay on the same Wi-Fi.</small>
+    </div>
+  </aside>
+
   <script type="module" src="/src/phone/controller.js"></script>
 </body>
 </html>
