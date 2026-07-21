@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#09080a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <title>upGradVerse Phone Controller</title>
+</head>
+<body>
+  <main class="phone-controller" id="phone-controller">
+    <header class="phone-topbar">
+      <img src="/assets/upgrad-logo.png" alt="upGrad" />
+      <div><strong>PHONE CONTROLLER</strong><span id="phone-session">PAIRING…</span></div>
+      <i class="phone-status-light" id="phone-status-light"></i>
+    </header>
+
+    <section class="phone-stage" aria-label="upGradVerse touch gamepad">
+      <div class="phone-connection" id="phone-connection" role="status">
+        <strong>CONNECTING TO UPGRADVERSE</strong>
+        <span>Keep this phone and the game computer on the same Wi-Fi network.</span>
+      </div>
+
+      <div class="touch-zone touch-zone-left">
+        <span class="touch-label">MOVE</span>
+        <div class="touch-stick" data-stick="move"><i></i><b></b></div>
+      </div>
+
+      <div class="phone-centre-controls">
+        <button class="utility-button" data-button="9"><span>☰</span><small>PAUSE</small></button>
+        <button class="utility-button" data-button="11"><span>◎</span><small>CAMERA</small></button>
+      </div>
+
+      <div class="touch-zone touch-zone-right">
+        <span class="touch-label">CAMERA</span>
+        <div class="touch-stick" data-stick="camera"><i></i><b></b></div>
+      </div>
+
+      <button class="shoulder shoulder-left" data-button="6"><strong>L2</strong><small>BRAKE</small></button>
+      <button class="shoulder shoulder-right" data-button="7"><strong>R2</strong><small>SPRINT / DRIVE</small></button>
+
+      <div class="face-buttons" aria-label="Action buttons">
+        <button class="face-button triangle" data-button="3" aria-label="Interact"><b>△</b><small>INTERACT</small></button>
+        <button class="face-button circle" data-button="1" aria-label="Back"><b>○</b><small>BACK</small></button>
+        <button class="face-button cross" data-button="0" aria-label="Jump"><b>×</b><small>JUMP</small></button>
+        <button class="face-button square" data-button="2" aria-label="Handbrake"><b>□</b><small>DRIFT</small></button>
+      </div>
+    </section>
+
+    <footer><span>Same Wi-Fi required</span><b>upGradVerse Remote · Prototype</b></footer>
+  </main>
+  <script type="module" src="/src/phone/controller.js"></script>
+</body>
+</html>

@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#09080a" />
+  <meta name="description" content="upGradVerse playable world prototype" />
+  <title>upGradVerse | Build Week Prototype</title>
+</head>
+<body>
+  <main id="world-shell">
+    <div id="world-canvas" aria-label="Playable upGradVerse world prototype"></div>
+
+    <header class="world-topbar">
+      <img src="/assets/upgrad-logo.png" alt="upGrad" />
+      <div class="world-title">
+        <span>UPGRADVERSE</span>
+        <small>BUILD WEEK / WORLD PROTOTYPE 01</small>
+      </div>
+      <button class="audio-state" id="audio-state" type="button" aria-label="Toggle Verse Radio" aria-pressed="true"><i></i><span>VERSE RADIO · READY</span><small>M TO MUTE</small></button>
+      <div class="avatar-state" id="avatar-state"><i></i><span>AVATAR LOADING</span></div>
+      <div class="controller-state" id="controller-state"><i></i><span>KEYBOARD READY</span></div>
+    </header>
+
+    <aside class="location-panel" id="navigation-panel">
+      <button class="navigation-chip" id="navigation-toggle" type="button" aria-expanded="false">
+        <i></i><span><small>NAVIGATION</small><strong id="navigation-target">ChatGPT Skill Shop</strong><em id="navigation-meta">Route active</em></span><b>⌄</b>
+      </button>
+      <div class="location-list">
+        <button class="location-item is-live is-active" data-focus="chatgpt">
+          <i></i><span><strong>ChatGPT Skill Shop</strong><small id="objective-distance">Locating…</small></span>
+        </button>
+        <button class="location-item" data-focus="human">
+          <i></i><span><strong>Human Instincts</strong><small>Assessment district</small></span>
+        </button>
+        <button class="location-item is-new" data-focus="claude">
+          <i></i><span><strong>Claude Skill Shop</strong><small id="claude-distance">New district</small></span>
+        </button>
+        <button class="location-item is-arena" data-focus="arena">
+          <i></i><span><strong>Verse Fight Ring</strong><small>Human × machine</small></span>
+        </button>
+        <button class="location-item is-locked" disabled>
+          <i></i><span><strong>Course Grid</strong><small>Next district</small></span>
+        </button>
+      </div>
+    </aside>
+
+    <div class="world-label" id="label-chatgpt"><strong>CHATGPT SKILL SHOP</strong><span>LIVE</span></div>
+    <div class="world-label" id="label-human"><strong>HUMAN INSTINCTS</strong><span>OPEN</span></div>
+    <div class="world-label" id="label-claude"><strong>CLAUDE SKILL SHOP</strong><span>NEW</span></div>
+    <div class="world-label" id="label-arena"><strong>VERSE FIGHT RING</strong><span>LIVE</span></div>
+
+    <div class="interaction-prompt" id="interaction-prompt" aria-live="polite">
+      <span class="keycap">E</span>
+      <span><strong id="interaction-title">Enter location</strong><small>Press Triangle or E</small></span>
+    </div>
+
+    <div class="controls-bar">
+      <span><b>WASD</b> MOVE</span><span><b>MOUSE / R STICK</b> ORBIT</span>
+      <span><b>SHIFT / R2</b> SPRINT</span><span><b>SPACE / CROSS</b> JUMP</span>
+      <span><b>E / TRIANGLE</b> INTERACT</span><span><b>P / OPTIONS</b> PAUSE</span>
+    </div>
+
+    <section class="world-radar" aria-label="upGradVerse location radar">
+      <div class="radar-face">
+        <span class="radar-ring ring-one"></span><span class="radar-ring ring-two"></span>
+        <i class="radar-marker chatgpt-marker" id="radar-chatgpt">C</i>
+        <i class="radar-marker human-marker" id="radar-human">H</i>
+        <i class="radar-marker claude-marker" id="radar-claude">A</i>
+        <i class="radar-marker arena-marker" id="radar-arena">V</i>
+        <i class="radar-player"></i>
+      </div>
+      <div class="radar-copy"><strong id="radar-title">CHATGPT SKILL SHOP</strong><small id="radar-distance">CALCULATING ROUTE</small></div>
+    </section>
+
+    <section class="entry-screen" id="entry-screen">
+      <div class="entry-grid"></div><div class="entry-orbit orbit-a"></div><div class="entry-orbit orbit-b"></div>
+      <div class="entry-card">
+        <img src="/assets/upgrad-logo.png" alt="upGrad" />
+        <span class="eyebrow">BUILD WEEK / PLAYABLE PROTOTYPE</span>
+        <h2>Learn inside<br />a living world.</h2>
+        <p>Explore a persistent learning universe where every Skill Shop turns a real skill into a playable challenge.</p>
+        <button id="enter-world">ENTER UPGRADVERSE</button>
+        <small>Keyboard · gamepad · phone controller · progress saves locally</small>
+      </div>
+    </section>
+
+    <section class="location-modal" id="location-modal" aria-hidden="true">
+      <div class="modal-card">
+        <button class="modal-close" id="modal-close" aria-label="Close">×</button>
+        <span class="eyebrow" id="modal-eyebrow">SKILL SHOP 01</span>
+        <h2 id="modal-title">ChatGPT Skill Shop</h2>
+        <p id="modal-copy">A growing set of playable challenges that teach practical AI skills through action.</p>
+        <div class="modal-status" id="modal-status">PROTOTYPE ENTRANCE ACTIVE</div>
+        <button class="modal-primary" id="modal-primary">ENTER SKILL SHOP</button>
+      </div>
+    </section>
+
+    <div class="pause-screen" id="pause-screen" aria-hidden="true"><span>WORLD PAUSED</span><small>Press P or Options to continue</small></div>
+    <div class="save-pill" id="save-pill">CHECKPOINT SAVED</div>
+    <div class="performance-pill" id="performance-pill">120 FPS TARGET</div>
+  </main>
+  <script type="module" src="/src/input-mode/startup.js"></script>
+  <script type="module" src="/src/world/main.js"></script>
+</body>
+</html>
