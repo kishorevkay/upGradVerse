@@ -6,3 +6,7 @@ dist/
 .vercel
 Character Ref/
 submission/*.zip
+submission/*.mp4
+submission/*.aiff
+submission/demo-*.jpg
+submission/video_work/

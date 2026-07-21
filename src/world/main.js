@@ -1271,6 +1271,21 @@ const TRAFFIC_SEGMENTS = TRAFFIC_LOOP.map((point, index) => {
   return { start: point, end: next, length: point.distanceTo(next) }
 })
 const TRAFFIC_LOOP_LENGTH = TRAFFIC_SEGMENTS.reduce((total, segment) => total + segment.length, 0)
+const TRAFFIC_LANE_OFFSET = 1.65
+const TRAFFIC_LOOP_CENTER = TRAFFIC_LOOP.reduce((center, point) => center.add(point), new THREE.Vector3()).multiplyScalar(1 / TRAFFIC_LOOP.length)
+const TRAFFIC_LANES = Object.fromEntries([-1, 1].map((direction) => {
+  const laneSide = direction > 0 ? 1 : -1
+  const points = TRAFFIC_LOOP.map((point) => new THREE.Vector3(
+    point.x + Math.sign(point.x - TRAFFIC_LOOP_CENTER.x) * TRAFFIC_LANE_OFFSET * laneSide,
+    point.y,
+    point.z + Math.sign(point.z - TRAFFIC_LOOP_CENTER.z) * TRAFFIC_LANE_OFFSET * laneSide,
+  ))
+  const segments = points.map((point, index) => {
+    const next = points[(index + 1) % points.length]
+    return { start: point, end: next, length: point.distanceTo(next) }
+  })
+  return [direction, { segments, length: segments.reduce((total, segment) => total + segment.length, 0) }]
+}))
 const trafficSamplePosition = new THREE.Vector3()
 const trafficSampleDirection = new THREE.Vector3()
 
@@ -1287,6 +1302,22 @@ function sampleTrafficLoop(distance, position = trafficSamplePosition, direction
   }
   position.copy(TRAFFIC_LOOP[0])
   direction.subVectors(TRAFFIC_LOOP[1], TRAFFIC_LOOP[0]).normalize()
+  return { position, direction }
+}
+
+function sampleTrafficLane(vehicle, position = trafficSamplePosition, direction = trafficSampleDirection) {
+  const lane = TRAFFIC_LANES[vehicle.direction]
+  let remaining = ((vehicle.routeDistance % lane.length) + lane.length) % lane.length
+  for (const segment of lane.segments) {
+    if (remaining <= segment.length) {
+      position.lerpVectors(segment.start, segment.end, remaining / Math.max(segment.length, .001))
+      direction.subVectors(segment.end, segment.start).normalize().multiplyScalar(vehicle.direction)
+      return { position, direction }
+    }
+    remaining -= segment.length
+  }
+  position.copy(lane.segments[0].start)
+  direction.subVectors(lane.segments[0].end, lane.segments[0].start).normalize().multiplyScalar(vehicle.direction)
   return { position, direction }
 }
 
@@ -1313,10 +1344,9 @@ const trafficVehicles = [
 ]
 
 trafficVehicles.forEach((vehicle) => {
-  const sample = sampleTrafficLoop(vehicle.routeDistance)
+  const sample = sampleTrafficLane(vehicle)
   vehicle.root.position.copy(sample.position)
-  const direction = sample.direction.clone().multiplyScalar(vehicle.direction)
-  vehicle.root.rotation.y = Math.atan2(-direction.x, -direction.z)
+  vehicle.root.rotation.y = Math.atan2(-sample.direction.x, -sample.direction.z)
 })
 
 window.__UPGRADVERSE_VEHICLES__ = {
@@ -1531,13 +1561,6 @@ function mapAvatarClips(clips) {
   return { idle, walk: middle[0], jump: middle[1], run }
 }
 
-function stabiliseJumpClip(clip) {
-  if (!clip) return null
-  const stable = clip.clone()
-  stable.tracks = stable.tracks.filter((track) => !/(^|\.)(Root|Armature)\.position$/i.test(track.name))
-  return stable
-}
-
 function setAvatarAction(name, fade = 0.18) {
   if (!avatarActions || activeAvatarAction === name || !avatarActions[name]) return
   const previous = activeAvatarAction ? avatarActions[activeAvatarAction] : null
@@ -1549,7 +1572,7 @@ function setAvatarAction(name, fade = 0.18) {
   if (name === 'jump') {
     next.setLoop(THREE.LoopOnce, 1)
     next.clampWhenFinished = true
-    next.paused = true
+    next.paused = false
   } else {
     next.setLoop(THREE.LoopRepeat, Infinity)
     next.clampWhenFinished = false
@@ -1640,7 +1663,6 @@ function loadPlayerAvatar(character = selectedCharacter) {
 
       avatarMixer = new THREE.AnimationMixer(model)
       const clips = mapAvatarClips(gltf.animations)
-      clips.jump = stabiliseJumpClip(clips.jump)
       avatarActions = Object.fromEntries(Object.entries(clips).filter(([, clip]) => clip).map(([name, clip]) => [name, avatarMixer.clipAction(clip)]))
       avatarReady = true
       setAvatarAction('idle', 0)
@@ -2491,16 +2513,49 @@ function updateDriverWalkers(dt, elapsed) {
   }
 }
 
+function getTrafficLeader(vehicle) {
+  let leader = null
+  let gap = Infinity
+  const loopLength = TRAFFIC_LANES[vehicle.direction].length
+  trafficVehicles.forEach((other) => {
+    if (other === vehicle || other.direction !== vehicle.direction || !['traffic', 'yielding', 'driver-exiting'].includes(other.state)) return
+    const signedDistance = vehicle.direction > 0
+      ? other.routeDistance - vehicle.routeDistance
+      : vehicle.routeDistance - other.routeDistance
+    const forwardDistance = ((signedDistance % loopLength) + loopLength) % loopLength
+    if (forwardDistance > .01 && forwardDistance < gap) {
+      gap = forwardDistance
+      leader = other
+    }
+  })
+  return { leader, gap }
+}
+
 function updateTrafficVehicles(dt) {
   trafficVehicles.forEach((vehicle) => {
     vehicle.collisionTimer = Math.max(0, vehicle.collisionTimer - dt)
     const distanceToPlayer = player.position.distanceTo(vehicle.root.position)
     if (vehicle.state === 'traffic') {
       const yieldingToPedestrian = !state.drivingVehicle && !state.pendingVehicle && player.visible && distanceToPlayer < 6.4
-      const targetSpeed = yieldingToPedestrian ? 0 : vehicle.targetTrafficSpeed * vehicle.direction
-      const response = yieldingToPedestrian ? 11.5 : 3.2
+      const yieldingToPlayerVehicle = Boolean(state.drivingVehicle && state.drivingVehicle !== vehicle && distanceToPlayer < 7.6)
+      const { leader, gap } = getTrafficLeader(vehicle)
+      const hardGap = leader ? (vehicle.config.length + leader.config.length) * .5 + 1.15 : 0
+      const followingGap = hardGap + 2.8 + Math.abs(vehicle.speed) * .72
+      let targetMagnitude = vehicle.targetTrafficSpeed
+      if (leader && gap < followingGap) {
+        const leaderSpeed = Math.abs(leader.speed)
+        const room = THREE.MathUtils.clamp((gap - hardGap) / Math.max(followingGap - hardGap, .01), 0, 1)
+        targetMagnitude = Math.min(targetMagnitude, leaderSpeed * room + vehicle.targetTrafficSpeed * room * .22)
+        if (gap < hardGap) {
+          vehicle.routeDistance -= (hardGap - gap) * vehicle.direction
+          targetMagnitude = Math.min(targetMagnitude, leaderSpeed)
+        }
+      }
+      const mustYield = yieldingToPedestrian || yieldingToPlayerVehicle
+      const targetSpeed = (mustYield ? 0 : targetMagnitude) * vehicle.direction
+      const response = mustYield || (leader && gap < followingGap) ? 11.5 : 3.2
       vehicle.speed = moveToward(vehicle.speed, targetSpeed, response * dt)
-      setVehicleBrakeLights(vehicle, yieldingToPedestrian)
+      setVehicleBrakeLights(vehicle, mustYield || Boolean(leader && gap < followingGap))
     } else if (vehicle.state === 'yielding') {
       vehicle.speed = moveToward(vehicle.speed, 0, 12.5 * dt)
       setVehicleBrakeLights(vehicle, true)
@@ -2522,9 +2577,9 @@ function updateTrafficVehicles(dt) {
 
     if (vehicle.state === 'traffic' || vehicle.state === 'yielding') {
       vehicle.routeDistance += vehicle.speed * dt
-      const sample = sampleTrafficLoop(vehicle.routeDistance)
+      const sample = sampleTrafficLane(vehicle)
       vehicle.root.position.copy(sample.position)
-      const routeDirection = sample.direction.clone().multiplyScalar(vehicle.direction)
+      const routeDirection = sample.direction
       const targetYaw = Math.atan2(-routeDirection.x, -routeDirection.z)
       const yawDelta = Math.atan2(Math.sin(targetYaw - vehicle.root.rotation.y), Math.cos(targetYaw - vehicle.root.rotation.y))
       vehicle.root.rotation.y += yawDelta * Math.min(1, dt * 5.8)
@@ -2662,13 +2717,15 @@ function updatePlayer(dt,elapsed) {
   nextPosition.copy(player.position).addScaledVector(desiredMove,speed*dt); resolveCollision(nextPosition); player.position.x=nextPosition.x; player.position.z=nextPosition.z
   if (!state.grounded) {
     state.jumpElapsed += dt
-    state.jumpVelocity-=JUMP_GRAVITY*dt; state.jumpOffset+=state.jumpVelocity*dt
-    if (avatarActions?.jump) {
-      const progress = THREE.MathUtils.clamp(state.jumpElapsed / JUMP_AIR_TIME, 0, 1)
-      const eased = progress * progress * (3 - 2 * progress)
-      avatarActions.jump.time = avatarActions.jump.getClip().duration * (.04 + eased * .92)
+    if (avatarReady && avatarActions?.jump) {
+      state.jumpOffset = 0
+      if (state.jumpElapsed >= avatarActions.jump.getClip().duration) {
+        state.jumpVelocity=0; state.jumpElapsed=0; state.grounded=true; playRumble(state.activeGamepad,'select').catch(()=>{})
+      }
+    } else {
+      state.jumpVelocity-=JUMP_GRAVITY*dt; state.jumpOffset+=state.jumpVelocity*dt
+      if (state.jumpOffset<=0) { state.jumpOffset=0; state.jumpVelocity=0; state.jumpElapsed=0; state.grounded=true; playRumble(state.activeGamepad,'select').catch(()=>{}) }
     }
-    if (state.jumpOffset<=0) { state.jumpOffset=0; state.jumpVelocity=0; state.jumpElapsed=0; state.grounded=true; playRumble(state.activeGamepad,'select').catch(()=>{}) }
   }
   const rig=player.userData.rig
   let bob=0,step=0

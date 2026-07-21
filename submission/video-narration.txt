@@ -1,0 +1,11 @@
+What if learning AI felt less like a course catalogue, and more like entering a living world?
+
+This is upGradVerse: a browser-native, three-dimensional learning city where fast-changing skills become places, missions, and playable decisions.
+
+Choose a cybernetic identity, explore on foot, drive cars and bikes, or use a controller or phone gamepad. Then enter modular Skill Shops for ChatGPT, Claude, and upGrad programs.
+
+Each shop teaches through short visual challenges: find trustworthy signal, repair a broken system, allocate a campaign budget, package useful context, and verify an output before trusting it.
+
+Kish directed the product, learning design, visual language, and hands-on playtesting. Codex with GPT-5.6 was the primary engineering collaborator, building and debugging the playable prototype in roughly two focused days.
+
+The city is the platform. As tools evolve, new Skill Shops can keep appearing.

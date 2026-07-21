@@ -7,6 +7,9 @@ const ROBOT_ASSET = '/assets/characters/third-party/RobotExpressive.glb'
 const ARENA_ORIGIN = new THREE.Vector3(23, 0.54, 46)
 const RING_RADIUS = 7.35
 const FIGHT_LIMIT = 5.65
+const FIGHTER_GROUND_Y = 0.62
+const MIN_FIGHTER_SEPARATION = 1.3
+const AI_ENGAGE_DISTANCE = 1.88
 const ROUND_SECONDS = 60
 
 const MOVES = {
@@ -461,7 +464,18 @@ function setLocomotion(fighter, name) {
   if (!fighter.mixer || fighter.activeLocomotion === name || !fighter.clips[name]) return
   const previous = fighter.activeLocomotion ? fighter.clips[fighter.activeLocomotion] : null
   const next = fighter.clips[name]
-  next.reset().setLoop(THREE.LoopRepeat, Infinity).setEffectiveTimeScale(name === 'walk' ? 1.3 : 1).fadeIn(0.13).play()
+  next.enabled = true
+  next.reset()
+  if (name === 'jump') {
+    next.setLoop(THREE.LoopOnce, 1)
+    next.clampWhenFinished = true
+    next.setEffectiveTimeScale(Math.max(0.8, next.getClip().duration / MOVES.jumpStrike.duration))
+  } else {
+    next.setLoop(THREE.LoopRepeat, Infinity)
+    next.clampWhenFinished = false
+    next.setEffectiveTimeScale(name === 'walk' ? 1.3 : 1)
+  }
+  next.fadeIn(0.13).play()
   previous?.fadeOut(0.13)
   fighter.activeLocomotion = name
 }
@@ -473,8 +487,7 @@ function applyFighterPose(fighter, elapsed) {
   if (fighter.hitReaction > 0) {
     const wobble = Math.sin(fighter.hitReaction * Math.PI * 7) * fighter.hitReaction
     fighter.visual.rotation.z = wobble * fighter.hitDirection * 0.16
-    fighter.visual.position.x = fighter.hitDirection * fighter.hitReaction * 0.28
-    fighter.visual.position.y = Math.sin(fighter.hitReaction * Math.PI) * 0.08
+    fighter.visual.position.z = -fighter.hitReaction * 0.18
   }
   if (!fighter.attack) return
   const move = MOVES[fighter.attack.name]
@@ -482,41 +495,31 @@ function applyFighterPose(fighter, elapsed) {
   const strike = Math.sin(Math.min(1, progress * 1.7) * Math.PI)
   const recover = Math.sin(progress * Math.PI)
   const direction = fighter.side === 'player' ? 1 : -1
-  fighter.visual.position.x += direction * move.lunge * recover
+  // Both fighter groups face local +Z toward their opponent. Lunge on that
+  // axis so attacks read as forward strikes instead of sideways orbiting.
+  fighter.visual.position.z += move.lunge * recover
 
   if (fighter.attack.name === 'jab') {
     addRotation(fighter.bones.rightUpperArm, -1.15 * strike, 0.15 * direction, -0.46 * direction * strike)
     addRotation(fighter.bones.rightForearm, -0.6 * strike, 0, 0)
-    fighter.visual.rotation.y = -direction * 0.12 * strike
   } else if (fighter.attack.name === 'hook') {
     addRotation(fighter.bones.leftUpperArm, -0.55 * strike, -0.9 * direction * strike, 0.75 * direction * strike)
     addRotation(fighter.bones.leftForearm, -1.15 * strike, 0, 0)
     addRotation(fighter.bones.spine, 0, -0.5 * direction * strike, 0)
-    fighter.visual.rotation.y = -direction * 0.35 * strike
   } else if (fighter.attack.name === 'uppercut') {
     addRotation(fighter.bones.rightUpperArm, -1.28 * strike, -0.3 * direction, -0.7 * direction * strike)
     addRotation(fighter.bones.rightForearm, -1.25 * strike, 0, 0)
     addRotation(fighter.bones.spine, -0.25 * strike, 0, 0.16 * direction * strike)
-    fighter.visual.position.y += strike * 0.14
   } else if (fighter.attack.name === 'kick') {
     addRotation(fighter.bones.rightThigh, -1.36 * strike, 0.3 * direction, -0.25 * direction)
     addRotation(fighter.bones.rightCalf, 1.2 * (1 - strike) * recover, 0, 0)
     addRotation(fighter.bones.spine, 0.12, 0, 0.23 * direction * strike)
-    fighter.visual.rotation.y = -direction * 0.18 * strike
   } else if (fighter.attack.name === 'dodge') {
     const duck = Math.sin(progress * Math.PI)
     fighter.visual.position.y -= duck * 0.72
     fighter.visual.position.z += direction * duck * 0.32
     addRotation(fighter.bones.spine, 0.58 * duck, 0, 0.22 * direction * duck)
     addRotation(fighter.bones.hips, -0.3 * duck, 0, 0)
-  } else if (fighter.attack.name === 'jumpStrike') {
-    const arc = Math.sin(progress * Math.PI)
-    fighter.visual.position.y += arc * 1.45
-    fighter.visual.rotation.z = -direction * arc * 0.08
-    addRotation(fighter.bones.leftThigh, -1.15 * strike, 0, 0)
-    addRotation(fighter.bones.leftCalf, 0.9 * strike, 0, 0)
-    addRotation(fighter.bones.rightThigh, 0.5 * arc, 0, 0)
-    addRotation(fighter.bones.spine, -0.35 * arc, 0, 0)
   }
 }
 
@@ -718,8 +721,8 @@ export function createVerseArena3D({
 
   const player = createFighter('THE HUMAN', 'player', 0xf3273f)
   const ai = createFighter('SYNTH // 07', 'ai', 0x55dbe6)
-  player.group.position.set(-2.25, 0.62, 0)
-  ai.group.position.set(2.25, 0.62, 0)
+  player.group.position.set(-2.25, FIGHTER_GROUND_Y, 0)
+  ai.group.position.set(2.25, FIGHTER_GROUND_Y, 0)
   root.add(player.group, ai.group)
 
   const impacts = createImpactPool()
@@ -815,8 +818,8 @@ export function createVerseArena3D({
       fighter.invulnerableUntil = 0
       setLocomotion(fighter, 'idle')
     }
-    player.group.position.set(-2.25, 0.62, 0)
-    ai.group.position.set(2.25, 0.62, 0)
+    player.group.position.set(-2.25, FIGHTER_GROUND_Y, 0)
+    ai.group.position.set(2.25, FIGHTER_GROUND_Y, 0)
     arena.scoreboard.update(state, true)
   }
 
@@ -860,14 +863,24 @@ export function createVerseArena3D({
   }
 
   function moveFighter(fighter, inputX, inputY, dt) {
-    if (fighter.attack || fighter.hitReaction > 0.26) {
+    if (fighter.attack) {
       fighter.moving = false
+      fighter.velocity.x = damp(fighter.velocity.x, 0, 16, dt)
+      fighter.velocity.z = damp(fighter.velocity.z, 0, 16, dt)
+      return
+    }
+    if (fighter.hitReaction > 0.26) {
+      fighter.moving = false
+      fighter.velocity.x = damp(fighter.velocity.x, 0, 16, dt)
+      fighter.velocity.z = damp(fighter.velocity.z, 0, 16, dt)
       setLocomotion(fighter, 'idle')
       return
     }
     const length = Math.hypot(inputX, inputY)
     if (length < 0.08) {
       fighter.moving = false
+      fighter.velocity.x = damp(fighter.velocity.x, 0, 14, dt)
+      fighter.velocity.z = damp(fighter.velocity.z, 0, 14, dt)
       setLocomotion(fighter, 'idle')
       return
     }
@@ -876,17 +889,13 @@ export function createVerseArena3D({
     const speed = fighter.side === 'player' ? 3.35 : 2.9
     fighter.velocity.x = damp(fighter.velocity.x, inputX * speed, 12, dt)
     fighter.velocity.z = damp(fighter.velocity.z, inputY * speed, 12, dt)
-    fighter.group.position.x += fighter.velocity.x * dt
-    fighter.group.position.z += fighter.velocity.z * dt
-    const radial = Math.hypot(fighter.group.position.x, fighter.group.position.z)
-    if (radial > FIGHT_LIMIT) {
-      fighter.group.position.x *= FIGHT_LIMIT / radial
-      fighter.group.position.z *= FIGHT_LIMIT / radial
-    }
   }
 
   function faceOpponent(fighter, opponent, dt) {
-    const angle = Math.atan2(opponent.group.position.x - fighter.group.position.x, opponent.group.position.z - fighter.group.position.z)
+    const deltaX = opponent.group.position.x - fighter.group.position.x
+    const deltaZ = opponent.group.position.z - fighter.group.position.z
+    if (deltaX * deltaX + deltaZ * deltaZ < 0.01) return
+    const angle = Math.atan2(deltaX, deltaZ)
     const target = angle
     const delta = Math.atan2(Math.sin(target - fighter.group.rotation.y), Math.cos(target - fighter.group.rotation.y))
     fighter.group.rotation.y += delta * Math.min(1, dt * 10)
@@ -901,6 +910,8 @@ export function createVerseArena3D({
     fighter.attack = { name: moveName, startedAt: state.elapsed }
     fighter.attackResolved = false
     fighter.actionCooldownUntil = state.elapsed + move.duration + 0.08
+    fighter.velocity.x *= 0.18
+    fighter.velocity.z *= 0.18
     if (moveName === 'jumpStrike') setLocomotion(fighter, 'jump')
     else setLocomotion(fighter, 'idle')
     if (move.damage) audio.play(moveName === 'jumpStrike' ? 'whoosh' : 'swing', move.damage / 12)
@@ -919,8 +930,12 @@ export function createVerseArena3D({
       if (move.damage && state.elapsed < defender.invulnerableUntil && defender.side === 'player') state.score += 40
       return
     }
-    const distance = attacker.group.position.distanceTo(defender.group.position)
-    if (distance > move.range) {
+    const deltaX = attacker.group.position.x - defender.group.position.x
+    const deltaZ = attacker.group.position.z - defender.group.position.z
+    const distance = Math.hypot(deltaX, deltaZ)
+    // The visual strike lunges ahead of the group origin, so include that
+    // visible reach in hit resolution.
+    if (distance > move.range + move.lunge * 0.65) {
       if (attacker.side === 'player') state.combo = 0
       return
     }
@@ -929,8 +944,10 @@ export function createVerseArena3D({
     defender.health = Math.max(0, defender.health - damage)
     defender.hitReaction = 1
     defender.hitDirection = attacker.side === 'player' ? 1 : -1
-    defender.velocity.x += defender.hitDirection * (1.5 + move.damage * 0.07)
-    defender.velocity.z += (Math.random() - 0.5) * 0.8
+    const knockback = defender.group.position.clone().sub(attacker.group.position).setY(0)
+    if (knockback.lengthSq() < 0.001) knockback.set(attacker.side === 'player' ? 1 : -1, 0, 0)
+    knockback.normalize()
+    defender.velocity.addScaledVector(knockback, 1.5 + move.damage * 0.07)
     state.playerHealth = player.health
     state.aiHealth = ai.health
     state.cameraShake = Math.max(state.cameraShake, 0.18 + move.damage * 0.018)
@@ -974,21 +991,20 @@ export function createVerseArena3D({
 
   function updateAi(dt) {
     const offset = player.group.position.clone().sub(ai.group.position)
+    offset.y = 0
     const distance = offset.length()
-    if (!ai.attack && state.elapsed >= state.aiThinkAt) {
-      if (distance > 2.1) {
-        offset.normalize()
-        moveFighter(ai, offset.x, offset.z, dt)
-        state.aiThinkAt = state.elapsed + 0.08
-      } else {
-        moveFighter(ai, 0, 0, dt)
+    if (ai.attack) return
+    if (distance > AI_ENGAGE_DISTANCE) {
+      offset.normalize()
+      moveFighter(ai, offset.x, offset.z, dt)
+      return
+    }
+    moveFighter(ai, 0, 0, dt)
+    if (state.elapsed >= state.aiThinkAt) {
         const danger = Boolean(player.attack && state.elapsed - player.attack.startedAt < MOVES[player.attack.name].windup + 0.08)
         if (danger && Math.random() < 0.42) performMove(ai, 'dodge')
         else performMove(ai, pick(state.aiHealth < 40 ? ['jab', 'hook', 'uppercut', 'kick', 'jumpStrike'] : ['jab', 'jab', 'hook', 'uppercut', 'kick']))
         state.aiThinkAt = state.elapsed + 0.5 + Math.random() * 0.72
-      }
-    } else if (!ai.attack) {
-      moveFighter(ai, 0, 0, dt)
     }
   }
 
@@ -1136,6 +1152,7 @@ export function createVerseArena3D({
       fighter.hitReaction = Math.max(0, fighter.hitReaction - dt * 3.2)
       fighter.group.position.addScaledVector(fighter.velocity, dt)
       fighter.velocity.multiplyScalar(Math.exp(-7 * dt))
+      fighter.group.position.y = FIGHTER_GROUND_Y
       const radial = Math.hypot(fighter.group.position.x, fighter.group.position.z)
       if (radial > FIGHT_LIMIT) {
         fighter.group.position.x *= FIGHT_LIMIT / radial
@@ -1143,14 +1160,16 @@ export function createVerseArena3D({
       }
     }
 
-    const separation = player.group.position.clone().sub(ai.group.position)
+    const separation = player.group.position.clone().sub(ai.group.position).setY(0)
     const distance = separation.length()
-    if (distance < 1.25) {
+    if (distance < MIN_FIGHTER_SEPARATION) {
       if (distance < 0.001) separation.set(-1, 0, 0)
-      separation.normalize().multiplyScalar((1.25 - distance) * 0.5)
+      separation.normalize().multiplyScalar((MIN_FIGHTER_SEPARATION - distance) * 0.5)
       player.group.position.add(separation)
       ai.group.position.sub(separation)
     }
+    player.group.position.y = FIGHTER_GROUND_Y
+    ai.group.position.y = FIGHTER_GROUND_Y
 
     faceOpponent(player, ai, dt)
     faceOpponent(ai, player, dt)
