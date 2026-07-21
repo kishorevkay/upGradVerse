@@ -8,6 +8,7 @@ This folder contains a claim-checked submission draft for the current local upGr
 - `DEMO_VIDEO_PLAN.md` — a `02:55` edit structure, safe retained Screenpipe ranges, export commands, fresh-capture order, and a 60-second fallback.
 - `ASSET_CHECKLIST.md` — current assets, required captures, submission dependencies, licensing checks, and truth gates.
 - `SUBMISSION_READY.md` — exact deadline, live URLs, and the remaining manual Devpost actions.
+- `JUDGE_HANDOFF.md` — the two-day build story, Codex 5.6 collaboration, CEO validation, private local memory architecture, and strongest achievements.
 
 ## Current verified state
 

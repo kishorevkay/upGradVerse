@@ -20,6 +20,10 @@ upGradVerse makes those decisions playable. A persistent 3D world acts as the na
 
 Kish directed the concept, learning design, visual language, and hands-on controller testing. Codex was the primary engineering collaborator: it inspected the evolving prototype, translated feedback into scoped implementation work, integrated Three.js systems and GLB assets, debugged character and vehicle controls, built input and phone-controller flows, and repeatedly validated production builds. The result is not a static concept film; it is an executable browser prototype shaped through a rapid human-plus-Codex feedback loop.
 
+Kish discovered and registered for Build Week only a day before submission, then completed the meaningful upGradVerse extension in roughly two focused days while balancing other live company projects. The concept was presented internally and appreciated by upGrad leadership, including the CEO. Codex 5.6 was the engineering environment for the build; Kish remained the creative director, product owner, and hands-on quality gate.
+
+The workflow was accelerated by Kish's private local-first Chitti memory architecture. Raw personal capture stays on his Mac; only scrubbed, deliberately curated project context is used for continuity. No private memory corpus is shipped with or exposed by this game.
+
 ## Technology
 
 - Three.js `0.179.1` for the 3D world, camera, lighting, animation, vehicles, citizens, and spatial interactions.

@@ -27,6 +27,9 @@
         <i></i><span><small>NAVIGATION</small><strong id="navigation-target">ChatGPT Skill Shop</strong><em id="navigation-meta">Route active</em></span><b>⌄</b>
       </button>
       <div class="location-list">
+        <button class="location-item is-live" data-focus="upgrad">
+          <i></i><span><strong>upGrad Skill Shop</strong><small>3 course missions</small></span>
+        </button>
         <button class="location-item is-live is-active" data-focus="chatgpt">
           <i></i><span><strong>ChatGPT Skill Shop</strong><small id="objective-distance">Locating…</small></span>
         </button>
@@ -39,12 +42,10 @@
         <button class="location-item is-arena" data-focus="arena">
           <i></i><span><strong>Verse Fight Ring</strong><small>Human × machine</small></span>
         </button>
-        <button class="location-item is-locked" disabled>
-          <i></i><span><strong>Course Grid</strong><small>Next district</small></span>
-        </button>
       </div>
     </aside>
 
+    <div class="world-label" id="label-upgrad"><strong>UPGRAD SKILL SHOP</strong><span>NEW</span></div>
     <div class="world-label" id="label-chatgpt"><strong>CHATGPT SKILL SHOP</strong><span>LIVE</span></div>
     <div class="world-label" id="label-human"><strong>HUMAN INSTINCTS</strong><span>OPEN</span></div>
     <div class="world-label" id="label-claude"><strong>CLAUDE SKILL SHOP</strong><span>NEW</span></div>
@@ -64,6 +65,7 @@
     <section class="world-radar" aria-label="upGradVerse location radar">
       <div class="radar-face">
         <span class="radar-ring ring-one"></span><span class="radar-ring ring-two"></span>
+        <i class="radar-marker upgrad-marker" id="radar-upgrad">U</i>
         <i class="radar-marker chatgpt-marker" id="radar-chatgpt">C</i>
         <i class="radar-marker human-marker" id="radar-human">H</i>
         <i class="radar-marker claude-marker" id="radar-claude">A</i>
@@ -75,13 +77,44 @@
 
     <section class="entry-screen" id="entry-screen">
       <div class="entry-grid"></div><div class="entry-orbit orbit-a"></div><div class="entry-orbit orbit-b"></div>
-      <div class="entry-card">
-        <img src="/assets/upgrad-logo.png" alt="upGrad" />
-        <span class="eyebrow">BUILD WEEK / PLAYABLE PROTOTYPE</span>
-        <h2>Learn inside<br />a living world.</h2>
-        <p>Explore a persistent learning universe where every Skill Shop turns a real skill into a playable challenge.</p>
-        <button id="enter-world">ENTER UPGRADVERSE</button>
-        <small>Keyboard · gamepad · phone controller · progress saves locally</small>
+      <div class="entry-card character-select" id="character-select">
+        <header class="character-select__header">
+          <img src="/assets/upgrad-logo.png" alt="upGrad" />
+          <span><b>UPGRADVERSE / PLAYER SELECT</b><small>CHOOSE YOUR CYBER IDENTITY</small></span>
+          <em>01 / 06</em>
+        </header>
+        <div class="character-select__stage">
+          <div class="character-turntable">
+            <canvas id="character-preview" aria-label="Selected character 3D preview"></canvas>
+            <img id="character-hero-portrait" src="/assets/avatars/kish-prime.png" alt="Kish Prime cyberpunk character portrait" />
+            <div class="character-scan"></div><span class="character-axis"></span>
+            <small>DRAG TO ROTATE · LIVE AVATAR PREVIEW</small>
+          </div>
+          <div class="character-profile">
+            <span class="eyebrow">DEFAULT VANGUARD</span>
+            <h2 id="character-name">KISH PRIME</h2>
+            <p id="character-role">Cyber Creative / Adaptive Fighter</p>
+            <div class="character-stats" id="character-stats">
+              <span><small>INSTINCT</small><i><b style="width:96%"></b></i></span>
+              <span><small>AGILITY</small><i><b style="width:88%"></b></i></span>
+              <span><small>TECH</small><i><b style="width:94%"></b></i></span>
+            </div>
+            <div class="character-traits" id="character-traits"><span>VISIONARY</span><span>FAST LEARNER</span><span>HUMAN EDGE</span></div>
+            <p class="character-bio" id="character-bio">A cybernetic creative strategist who turns instinct into action before the system catches up.</p>
+          </div>
+        </div>
+        <div class="character-roster" role="listbox" aria-label="Choose an upGradVerse character">
+          <button class="character-card is-selected" type="button" data-character="kish-prime" role="option" aria-selected="true"><img src="/assets/avatars/kish-prime.png" alt="" /><span><strong>KISH PRIME</strong><small>CYBER CREATIVE</small></span><b>01</b></button>
+          <button class="character-card" type="button" data-character="nova-veer" role="option" aria-selected="false"><i class="avatar-token token-nova">NV</i><span><strong>NOVA VEER</strong><small>NEURAL SCOUT</small></span><b>02</b></button>
+          <button class="character-card" type="button" data-character="mira-flux" role="option" aria-selected="false"><i class="avatar-token token-mira">MF</i><span><strong>MIRA FLUX</strong><small>SIGNAL ARCHITECT</small></span><b>03</b></button>
+          <button class="character-card" type="button" data-character="zara-vex" role="option" aria-selected="false"><i class="avatar-token token-zara">ZV</i><span><strong>ZARA VEX</strong><small>COMBAT ANALYST</small></span><b>04</b></button>
+          <button class="character-card" type="button" data-character="axiom-7" role="option" aria-selected="false"><i class="avatar-token token-axiom">A7</i><span><strong>AXIOM-7</strong><small>SYNTH GUARDIAN</small></span><b>05</b></button>
+          <button class="character-card" type="button" data-character="rook-zero" role="option" aria-selected="false"><i class="avatar-token token-rook">R0</i><span><strong>ROOK ZERO</strong><small>HEAVY PROTOCOL</small></span><b>06</b></button>
+        </div>
+        <footer class="character-select__footer">
+          <small>Every identity is playable · selection saves locally</small>
+          <button id="enter-world">ENTER WORLD <span>→</span></button>
+        </footer>
       </div>
     </section>
 

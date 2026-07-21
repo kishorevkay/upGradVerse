@@ -6,10 +6,15 @@ import { GamepadAdapter } from '../input/GamepadAdapter.js'
 import { playRumble } from '../input/haptics.js'
 import { createChatGPTSkillShop } from '../skillshop/skillshop.js'
 import { createClaudeSkillShop } from '../claude-shop/claudeShop.js'
+import { createUpgradSkillShop } from '../upgrad-shop/upgradShop.js'
 import { createVerseArena3D } from '../arena3d/arena3d.js'
 import { AudioDirector } from './audioDirector.js'
 import { createCityUpgrade } from './cityUpgrade.js'
 import { createTransportUpgrade } from './transportUpgrade.js'
+import { createAtmosphereUpgrade } from './atmosphereUpgrade.js'
+
+const NEUTRAL_AVATAR_TEXTURE = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl2ZAAAAABJRU5ErkJggg=='
+THREE.DefaultLoadingManager.setURLModifier((url) => /Textures\/colormap\.png(?:$|\?)/i.test(url) ? NEUTRAL_AVATAR_TEXTURE : url)
 
 const $ = (selector) => document.querySelector(selector)
 const shell = $('#world-shell')
@@ -19,6 +24,7 @@ const controllerState = $('#controller-state')
 const locationModal = $('#location-modal')
 const pauseScreen = $('#pause-screen')
 const radarHuman = $('#radar-human')
+const radarUpgrad = $('#radar-upgrad')
 const radarChatgpt = $('#radar-chatgpt')
 const radarClaude = $('#radar-claude')
 const radarArena = $('#radar-arena')
@@ -792,6 +798,14 @@ function loadCentralBuilding() {
 
 loadCentralBuilding()
 
+interactables.push({
+  id: 'upgrad',
+  title: 'Enter upGrad Skill Shop',
+  position: new THREE.Vector3(CITY.hq.x, 0, CITY.hq.z + 11.2),
+  radius: 4.6,
+  group: centralBuildingFallback.group,
+})
+
 function addSkillShop({ id, title, x, z, color, shape = 'round' }) {
   const group = new THREE.Group()
   group.position.set(x, 0.5, z)
@@ -1341,6 +1355,13 @@ const transportUpgrade = createTransportUpgrade({
   getDrivingVehicle: () => state.drivingVehicle,
 })
 
+const atmosphereUpgrade = createAtmosphereUpgrade({
+  THREE,
+  scene,
+  world,
+  cityHalfExtent: CITY.halfExtent,
+})
+
 function makeSyntheticHuman(color = COLORS.red, scale = 1) {
   const root = new THREE.Group()
   const hips = new THREE.Group()
@@ -1393,8 +1414,64 @@ function makeSyntheticHuman(color = COLORS.red, scale = 1) {
   return root
 }
 
+const CHARACTER_ROSTER = [
+  { id:'kish-prime', name:'KISH PRIME', role:'Cyber Creative / Adaptive Fighter', type:'cyborg', color:COLORS.red, accent:0xff9aa6, instinct:96, agility:88, tech:94, traits:['VISIONARY','FAST LEARNER','HUMAN EDGE'], bio:'A cybernetic creative strategist who turns instinct into action before the system catches up.', model:'/assets/characters/kish_3d_avatar.glb?v=1' },
+  { id:'nova-veer', name:'NOVA VEER', role:'Neural Scout / Velocity Class', type:'male', color:0x16c8aa, accent:0x9affec, instinct:84, agility:97, tech:82, traits:['RAPID SCAN','PARKOUR','FORESIGHT'], bio:'Built for speed and signal discovery. Nova reads the city two moves before everyone else.' },
+  { id:'mira-flux', name:'MIRA FLUX', role:'Signal Architect / Tactical Class', type:'female', color:0xeb4f92, accent:0xffb7d7, instinct:91, agility:82, tech:98, traits:['SYSTEM THINKER','FOCUS','OVERDRIVE'], bio:'A precision cyborg who reshapes noisy systems into clear, playable strategies.' },
+  { id:'zara-vex', name:'ZARA VEX', role:'Combat Analyst / Reflex Class', type:'female', color:0x8d69ed, accent:0xd1c2ff, instinct:95, agility:94, tech:79, traits:['COUNTER','REFLEX','PATTERN BREAK'], bio:'Human intuition fused with a combat prediction core. Zara learns every opponent in real time.' },
+  { id:'axiom-7', name:'AXIOM-7', role:'Synth Guardian / Logic Class', type:'robot', color:0x42bed4, accent:0xb7f6ff, instinct:70, agility:76, tech:100, traits:['SYNTH MIND','DURABLE','ZERO LATENCY'], bio:'A fully synthetic guardian with expressive movement and an uncompromising logic engine.', model:'/assets/characters/third-party/RobotExpressive.glb' },
+  { id:'rook-zero', name:'ROOK ZERO', role:'Heavy Protocol / Power Class', type:'heavy', color:0xef6743, accent:0xffb39d, instinct:82, agility:68, tech:90, traits:['HEAVY FRAME','SHIELD','IMPACT'], bio:'A siege-grade learning machine designed to protect the team and break impossible deadlocks.' },
+]
+
+function makeRosterAvatar(character, scale = .51) {
+  const avatar = makeSyntheticHuman(character.color, scale)
+  const rig = avatar.userData.rig
+  const isFemale = character.type === 'female'
+  const isRobot = character.type === 'robot' || character.type === 'heavy'
+  if (isFemale) {
+    rig.hips.scale.x = .88
+    rig.head.scale.set(.94, .98, .94)
+    rig.arms.forEach((arm) => { arm.position.x *= .9; arm.scale.set(.9, 1.02, .9) })
+    rig.legs.forEach((leg) => { leg.position.x *= .9; leg.scale.set(.9, 1.03, .9) })
+  }
+  if (character.type === 'male') {
+    rig.hips.scale.set(1.04, 1.02, 1)
+    rig.arms.forEach((arm) => { arm.position.x *= 1.05 })
+  }
+  if (character.type === 'heavy') {
+    rig.hips.scale.set(1.17, 1.03, 1.08)
+    rig.arms.forEach((arm) => arm.scale.set(1.22, 1.05, 1.22))
+    rig.legs.forEach((leg) => leg.scale.set(1.15, 1.02, 1.15))
+  }
+  const glow = material(character.accent, .25, .78, character.accent, 2.4)
+  const chest = new THREE.Mesh(new THREE.BoxGeometry(isRobot ? 1.05 : .82, .12, .5), glow)
+  chest.position.set(0, 2.72, .5)
+  rig.hips.add(chest)
+  const spine = new THREE.Mesh(new THREE.BoxGeometry(.1, 1.25, .12), glow)
+  spine.position.set(0, 2.18, -.5)
+  rig.hips.add(spine)
+  if (isRobot) {
+    const visor = new THREE.Mesh(new THREE.BoxGeometry(.78, .18, .22), glow)
+    visor.position.set(0, .06, .48)
+    rig.head.add(visor)
+    for (const side of [-1, 1]) {
+      const guard = new THREE.Mesh(new THREE.BoxGeometry(.42, .2, .55), glow)
+      guard.position.set(side * .72, 2.95, 0)
+      guard.rotation.z = side * .18
+      rig.hips.add(guard)
+    }
+  } else {
+    const temple = new THREE.Mesh(new THREE.TorusGeometry(.59, .035, 6, 24, Math.PI * 1.12), glow)
+    temple.rotation.set(Math.PI / 2, 0, -.18)
+    rig.head.add(temple)
+  }
+  avatar.userData.characterId = character.id
+  return avatar
+}
+
 const player = new THREE.Group()
-const fallbackAvatar = makeSyntheticHuman(COLORS.red, 0.51)
+const defaultCharacter = CHARACTER_ROSTER[0]
+const fallbackAvatar = makeRosterAvatar(defaultCharacter)
 player.add(fallbackAvatar)
 player.userData.rig = fallbackAvatar.userData.rig
 const saved = (() => { try { return JSON.parse(localStorage.getItem('upgradverse-checkpoint')) } catch { return null } })()
@@ -1422,6 +1499,9 @@ let avatarMixer = null
 let avatarActions = null
 let activeAvatarAction = null
 let avatarReady = false
+let currentAvatarVisual = fallbackAvatar
+let selectedCharacter = defaultCharacter
+let avatarLoadVersion = 0
 
 function findNamedClip(clips, pattern) {
   return clips.find((clip) => pattern.test(clip.name)) || null
@@ -1434,7 +1514,11 @@ function mapAvatarClips(clips) {
     run: findNamedClip(clips, /run|sprint/i),
     jump: findNamedClip(clips, /jump/i),
   }
-  if (Object.values(named).every(Boolean)) return named
+  if (named.idle && named.walk && named.run) {
+    named.jump ||= named.run.clone()
+    named.jump.name = `${named.jump.name || 'Run'}_JumpFallback`
+    return named
+  }
 
   if (clips.length === 4 && clips.every((clip) => /^NlaTrack/.test(clip.name))) {
     return { idle: clips[0], jump: clips[1], walk: clips[2], run: clips[3] }
@@ -1448,6 +1532,7 @@ function mapAvatarClips(clips) {
 }
 
 function stabiliseJumpClip(clip) {
+  if (!clip) return null
   const stable = clip.clone()
   stable.tracks = stable.tracks.filter((track) => !/(^|\.)(Root|Armature)\.position$/i.test(track.name))
   return stable
@@ -1473,14 +1558,54 @@ function setAvatarAction(name, fade = 0.18) {
   if (previous) previous.fadeOut(fade)
   next.fadeIn(fade).play()
   activeAvatarAction = name
-  if (avatarReady) avatarState.querySelector('span').textContent = `AVATAR · ${name.toUpperCase()}`
+  if (avatarReady) avatarState.querySelector('span').textContent = selectedCharacter.name
 }
 
-function loadPlayerAvatar() {
-  const loader = new GLTFLoader()
+function clearControlledAvatar() {
+  avatarLoadVersion += 1
+  avatarMixer?.stopAllAction()
+  avatarMixer = null
+  avatarActions = null
+  activeAvatarAction = null
+  avatarReady = false
+  if (currentAvatarVisual) player.remove(currentAvatarVisual)
+  currentAvatarVisual = null
+  player.userData.rig = null
+}
+
+function createAvatarLoader() {
+  const manager = new THREE.LoadingManager()
+  manager.setURLModifier((url) => /Textures\/colormap\.png(?:$|\?)/i.test(url) ? NEUTRAL_AVATAR_TEXTURE : url)
+  return new GLTFLoader(manager)
+}
+
+function attachProceduralAvatar(character) {
+  const model = makeRosterAvatar(character)
+  player.add(model)
+  currentAvatarVisual = model
+  player.userData.rig = model.userData.rig
+  avatarState.classList.add('is-ready')
+  avatarState.classList.remove('is-error')
+  avatarState.querySelector('span').textContent = character.name
+  window.__UPGRADVERSE_AVATAR__ = { ready:true, character:character.id, source:'procedural-cyborg-rig' }
+}
+
+function loadPlayerAvatar(character = selectedCharacter) {
+  clearControlledAvatar()
+  selectedCharacter = character
+  localStorage.setItem('upgradverse-character', character.id)
+  avatarState.classList.remove('is-ready','is-error')
+  avatarState.querySelector('span').textContent = `${character.name} · LOADING`
+  if (!character.model) {
+    attachProceduralAvatar(character)
+    return
+  }
+  const requestVersion = avatarLoadVersion
+  const loader = createAvatarLoader()
   loader.load(
-    '/assets/characters/kish_3d_avatar.glb?v=1',
+    character.model,
     (gltf) => {
+      if (requestVersion !== avatarLoadVersion) return
       const model = gltf.scene
       model.updateMatrixWorld(true)
       const sourceBounds = new THREE.Box3().setFromObject(model)
@@ -1511,32 +1636,171 @@ function loadPlayerAvatar() {
       facingRoot.rotation.y = Math.PI
       facingRoot.add(model)
       player.add(facingRoot)
+      currentAvatarVisual = facingRoot
 
       avatarMixer = new THREE.AnimationMixer(model)
       const clips = mapAvatarClips(gltf.animations)
       clips.jump = stabiliseJumpClip(clips.jump)
-      avatarActions = Object.fromEntries(Object.entries(clips).map(([name, clip]) => [name, avatarMixer.clipAction(clip)]))
+      avatarActions = Object.fromEntries(Object.entries(clips).filter(([, clip]) => clip).map(([name, clip]) => [name, avatarMixer.clipAction(clip)]))
       avatarReady = true
       setAvatarAction('idle', 0)
-      player.remove(fallbackAvatar)
       player.userData.rig = null
       avatarState.classList.add('is-ready')
+      avatarState.querySelector('span').textContent = character.name
       window.__UPGRADVERSE_AVATAR__ = {
         ready: true,
+        character: character.id,
         clips: Object.fromEntries(Object.entries(clips).map(([name, clip]) => [name, { source: clip.name, duration: clip.duration }])),
       }
     },
     undefined,
     (error) => {
+      if (requestVersion !== avatarLoadVersion) return
       console.error('upGradVerse avatar failed to load', error)
       avatarState.classList.add('is-error')
-      avatarState.querySelector('span').textContent = 'POLYGON FALLBACK'
-      window.__UPGRADVERSE_AVATAR__ = { ready: false, error: String(error?.message || error) }
+      avatarState.querySelector('span').textContent = `${character.name} · FALLBACK`
+      attachProceduralAvatar(character)
+      window.__UPGRADVERSE_AVATAR__ = { ready: false, character:character.id, fallback:true, error: String(error?.message || error) }
     },
   )
 }
 
-loadPlayerAvatar()
+const savedCharacterId = localStorage.getItem('upgradverse-character')
+selectedCharacter = CHARACTER_ROSTER.find((entry) => entry.id === savedCharacterId) || defaultCharacter
+loadPlayerAvatar(selectedCharacter)
+
+const characterPreviewCanvas = $('#character-preview')
+const characterTurntable = document.querySelector('.character-turntable')
+const characterPreviewScene = new THREE.Scene()
+const characterPreviewCamera = new THREE.PerspectiveCamera(32, 1, .05, 30)
+characterPreviewCamera.position.set(0, 2.45, 7.2)
+characterPreviewCamera.lookAt(0, 2.05, 0)
+const characterPreviewRenderer = new THREE.WebGLRenderer({ canvas:characterPreviewCanvas, antialias:true, alpha:true, powerPreference:'high-performance' })
+characterPreviewRenderer.setPixelRatio(Math.min(devicePixelRatio, 1.15))
+characterPreviewRenderer.outputColorSpace = THREE.SRGBColorSpace
+characterPreviewRenderer.toneMapping = THREE.ACESFilmicToneMapping
+characterPreviewRenderer.toneMappingExposure = 1.28
+characterPreviewScene.add(new THREE.HemisphereLight(0xe9efff, 0x301018, 2.4))
+const previewKey = new THREE.DirectionalLight(0xffffff, 4.5)
+previewKey.position.set(-3, 5, 5)
+characterPreviewScene.add(previewKey)
+const previewRim = new THREE.PointLight(COLORS.red, 28, 12, 2)
+previewRim.position.set(3, 3, -2)
+characterPreviewScene.add(previewRim)
+const previewGroup = new THREE.Group()
+characterPreviewScene.add(previewGroup)
+let previewVersion = 0
+let previewDragging = false
+let previewPointerX = 0
+let previewSpin = .34
+
+function clearPreview() {
+  previewVersion += 1
+  while (previewGroup.children.length) previewGroup.remove(previewGroup.children[0])
+}
+
+function fitPreviewModel(model, height = 4.25) {
+  model.updateMatrixWorld(true)
+  const bounds = new THREE.Box3().setFromObject(model)
+  const size = bounds.getSize(new THREE.Vector3())
+  const scale = height / Math.max(size.y, .001)
+  model.scale.setScalar(scale)
+  model.updateMatrixWorld(true)
+  const scaled = new THREE.Box3().setFromObject(model)
+  const center = scaled.getCenter(new THREE.Vector3())
+  model.position.set(-center.x, -scaled.min.y, -center.z)
+  model.traverse((child) => {
+    if (!child.isMesh) return
+    child.castShadow = false
+    child.receiveShadow = false
+  })
+}
+
+function showCharacterPreview(character) {
+  clearPreview()
+  previewRim.color.setHex(character.color)
+  characterTurntable.classList.toggle('is-kish', character.id === 'kish-prime')
+  const version = previewVersion
+  if (!character.model) {
+    const avatar = makeRosterAvatar(character, .88)
+    previewGroup.add(avatar)
+    return
+  }
+  createAvatarLoader().load(character.model, (gltf) => {
+    if (version !== previewVersion) return
+    const model = cloneSkeleton(gltf.scene)
+    fitPreviewModel(model)
+    model.rotation.y = 0
+    previewGroup.add(model)
+  }, undefined, () => {
+    if (version !== previewVersion) return
+    previewGroup.add(makeRosterAvatar(character, .88))
+  })
+}
+
+function updateCharacterProfile(character) {
+  $('#character-name').textContent = character.name
+  $('#character-role').textContent = character.role
+  $('#character-bio').textContent = character.bio
+  $('#character-traits').innerHTML = character.traits.map((trait) => `<span>${trait}</span>`).join('')
+  $('#character-stats').innerHTML = [
+    ['INSTINCT',character.instinct],['AGILITY',character.agility],['TECH',character.tech],
+  ].map(([label,value]) => `<span><small>${label}</small><i><b style="width:${value}%"></b></i></span>`).join('')
+  document.querySelector('.character-select__header em').textContent = `${String(CHARACTER_ROSTER.indexOf(character)+1).padStart(2,'0')} / 06`
+  document.querySelector('.character-profile .eyebrow').textContent = character.id === 'kish-prime' ? 'DEFAULT VANGUARD' : character.type === 'robot' || character.type === 'heavy' ? 'SYNTH CLASS' : 'CYBORG CLASS'
+}
+
+function selectCharacter(character, announce = true) {
+  selectedCharacter = character
+  document.querySelectorAll('.character-card').forEach((card) => {
+    const active = card.dataset.character === character.id
+    card.classList.toggle('is-selected', active)
+    card.setAttribute('aria-selected', String(active))
+  })
+  updateCharacterProfile(character)
+  showCharacterPreview(character)
+  loadPlayerAvatar(character)
+  if (announce) playRumble(state.activeGamepad,'select').catch(()=>{})
+}
+
+function selectRelativeCharacter(delta) {
+  const currentIndex = CHARACTER_ROSTER.indexOf(selectedCharacter)
+  const nextIndex = (currentIndex + delta + CHARACTER_ROSTER.length) % CHARACTER_ROSTER.length
+  selectCharacter(CHARACTER_ROSTER[nextIndex])
+}
+
+document.querySelectorAll('.character-card').forEach((card) => card.addEventListener('click', () => {
+  const character = CHARACTER_ROSTER.find((entry) => entry.id === card.dataset.character)
+  if (character) selectCharacter(character)
+}))
+characterPreviewCanvas.addEventListener('pointerdown', (event) => {
+  previewDragging = true
+  previewPointerX = event.clientX
+  characterPreviewCanvas.setPointerCapture(event.pointerId)
+})
+characterPreviewCanvas.addEventListener('pointermove', (event) => {
+  if (!previewDragging) return
+  const delta = event.clientX - previewPointerX
+  previewGroup.rotation.y += delta * .012
+  previewPointerX = event.clientX
+})
+characterPreviewCanvas.addEventListener('pointerup', () => { previewDragging = false })
+
+function renderCharacterPreview() {
+  const rect = characterPreviewCanvas.getBoundingClientRect()
+  const width = Math.max(1, Math.round(rect.width))
+  const height = Math.max(1, Math.round(rect.height))
+  if (characterPreviewCanvas.width !== width || characterPreviewCanvas.height !== height) {
+    characterPreviewRenderer.setSize(width, height, false)
+    characterPreviewCamera.aspect = width / height
+    characterPreviewCamera.updateProjectionMatrix()
+  }
+  if (!previewDragging) previewGroup.rotation.y += .0042 * previewSpin
+  previewGroup.position.y = Math.sin(performance.now() * .0014) * .025
+  characterPreviewRenderer.render(characterPreviewScene, characterPreviewCamera)
+}
+characterPreviewRenderer.setAnimationLoop(renderCharacterPreview)
+selectCharacter(selectedCharacter, false)
 
 const npcCount = 44
 const pedestrianPaths = [
@@ -1685,6 +1949,7 @@ function updateRiggedCitizens(dt, elapsed) {
 loadRiggedCitizens()
 
 const labelAnchors = {
+  upgrad: new THREE.Vector3(CITY.hq.x, 31.5, CITY.hq.z),
   chatgpt: new THREE.Vector3(CITY.chatgpt.x, 17.2, CITY.chatgpt.z),
   human: new THREE.Vector3(CITY.human.x, 13.3, CITY.human.z),
   claude: new THREE.Vector3(CITY.claude.x, 20.1, CITY.claude.z),
@@ -1711,23 +1976,24 @@ function placeRadarMarker(node, target) {
 }
 
 function updateObjectiveVisuals() {
+  const upgrad = interactables.find((entry) => entry.id === 'upgrad')
   const chatgpt = interactables.find((entry) => entry.id === 'chatgpt')
   const human = interactables.find((entry) => entry.id === 'human')
   const claude = interactables.find((entry) => entry.id === 'claude')
   const arena = interactables.find((entry) => entry.id === 'arena')
-  placeRadarMarker(radarChatgpt, chatgpt.position); placeRadarMarker(radarHuman, human.position); placeRadarMarker(radarClaude, claude.position); placeRadarMarker(radarArena, arena.position)
-  const objective = state.objectiveId === 'human' ? human : state.objectiveId === 'claude' ? claude : state.objectiveId === 'arena' ? arena : chatgpt
+  placeRadarMarker(radarUpgrad, upgrad.position); placeRadarMarker(radarChatgpt, chatgpt.position); placeRadarMarker(radarHuman, human.position); placeRadarMarker(radarClaude, claude.position); placeRadarMarker(radarArena, arena.position)
+  const objective = state.objectiveId === 'upgrad' ? upgrad : state.objectiveId === 'human' ? human : state.objectiveId === 'claude' ? claude : state.objectiveId === 'arena' ? arena : chatgpt
   const distance = Math.hypot(objective.position.x-player.position.x,objective.position.z-player.position.z)
   const metres = Math.max(0,Math.round(distance))
-  radarTitle.textContent = objective.id === 'chatgpt' ? 'CHATGPT SKILL SHOP' : objective.id === 'claude' ? 'CLAUDE SKILL SHOP' : objective.id === 'arena' ? 'VERSE FIGHT RING' : 'HUMAN INSTINCTS'
+  radarTitle.textContent = objective.id === 'upgrad' ? 'UPGRAD SKILL SHOP' : objective.id === 'chatgpt' ? 'CHATGPT SKILL SHOP' : objective.id === 'claude' ? 'CLAUDE SKILL SHOP' : objective.id === 'arena' ? 'VERSE FIGHT RING' : 'HUMAN INSTINCTS'
   radarDistance.textContent = distance < 4.35 ? 'LOCATION REACHED · PRESS E' : `${metres} M · FOLLOW MARKER`
-  navigationTarget.textContent = objective.id === 'chatgpt' ? 'ChatGPT Skill Shop' : objective.id === 'claude' ? 'Claude Skill Shop' : objective.id === 'arena' ? 'Verse Fight Ring' : 'Human Instincts'
+  navigationTarget.textContent = objective.id === 'upgrad' ? 'upGrad Skill Shop' : objective.id === 'chatgpt' ? 'ChatGPT Skill Shop' : objective.id === 'claude' ? 'Claude Skill Shop' : objective.id === 'arena' ? 'Verse Fight Ring' : 'Human Instincts'
   navigationMeta.textContent = distance < 4.35 ? 'Entrance reached' : `${metres} m away`
   objectiveDistance.textContent = objective.id === 'chatgpt' ? (distance < 4.35 ? 'Entrance reached' : `${metres} m away`) : 'Live district'
   claudeDistance.textContent = objective.id === 'claude' ? (distance < 4.35 ? 'Entrance reached' : `${metres} m away`) : 'New district'
   waypoint.position.copy(objective.position)
   waypoint.children.forEach((child) => {
-    if (child.material?.color) child.material.color.setHex(objective.id === 'chatgpt' ? COLORS.openai : objective.id === 'claude' ? COLORS.claude : objective.id === 'arena' ? COLORS.violet : COLORS.cyan)
+    if (child.material?.color) child.material.color.setHex(objective.id === 'upgrad' ? COLORS.red : objective.id === 'chatgpt' ? COLORS.openai : objective.id === 'claude' ? COLORS.claude : objective.id === 'arena' ? COLORS.violet : COLORS.cyan)
   })
 }
 
@@ -1740,20 +2006,23 @@ function setPaused(value) {
 function openLocation(location) {
   if (!location) return
   state.modalOpen = true; state.modalLocationId = location.id; state.paused = true
+  const upgrad = location.id === 'upgrad'
   const chatgpt = location.id === 'chatgpt'
   const claude = location.id === 'claude'
   const arena = location.id === 'arena'
-  $('#modal-eyebrow').textContent = chatgpt ? 'SKILL SHOP 01 / LIVE LAB' : claude ? 'SKILL SHOP 02 / ARTIFACT STUDIO' : arena ? 'LIVE EVENT / HUMAN × MACHINE' : 'ASSESSMENT DISTRICT / CONNECTED'
-  $('#modal-title').textContent = chatgpt ? 'ChatGPT Skill Shop' : claude ? 'Claude Skill Shop' : arena ? 'Verse Fight Ring' : 'Human Instincts'
-  $('#modal-copy').textContent = chatgpt
+  $('#modal-eyebrow').textContent = upgrad ? 'SKILL SHOP 03 / COURSE ARCADE' : chatgpt ? 'SKILL SHOP 01 / LIVE LAB' : claude ? 'SKILL SHOP 02 / ARTIFACT STUDIO' : arena ? 'LIVE EVENT / HUMAN × MACHINE' : 'ASSESSMENT DISTRICT / CONNECTED'
+  $('#modal-title').textContent = upgrad ? 'upGrad Skill Shop' : chatgpt ? 'ChatGPT Skill Shop' : claude ? 'Claude Skill Shop' : arena ? 'Verse Fight Ring' : 'Human Instincts'
+  $('#modal-copy').textContent = upgrad
+    ? 'Three visual course missions: find trustworthy data, repair a full-stack pipeline, then allocate a campaign budget to hit the target.'
+    : chatgpt
     ? 'Three visual missions: match the task to a model, build its memory packet, then repair and verify a failed code session.'
     : claude
       ? 'A living artifact studio for visual reasoning, long-context synthesis, and building polished work from complex source material.'
       : arena
         ? 'Step into an original neon octagon. Read the opponent, combine six moves, and prove human instinct can outfight machine precision.'
         : 'A visual decision game that measures how you direct, question and improve AI output across five human-instinct parameters.'
-  $('#modal-status').textContent = chatgpt || claude ? '03 VISUAL CHALLENGES · ~02 MIN · REWARD SAVES' : arena ? '06 MOVES · LIVE SCORE · CROWD AUDIO' : 'EXPERIENCE LINK RESERVED'
-  $('#modal-primary').textContent = chatgpt ? 'ENTER LIVE LAB' : claude ? 'ENTER ARTIFACT STUDIO' : arena ? 'ENTER THE OCTAGON' : 'ENTER HUMAN INSTINCTS'
+  $('#modal-status').textContent = upgrad || chatgpt || claude ? '03 VISUAL CHALLENGES · ~02 MIN · REWARD SAVES' : arena ? '06 MOVES · LIVE SCORE · CROWD AUDIO' : 'EXPERIENCE LINK RESERVED'
+  $('#modal-primary').textContent = upgrad ? 'ENTER COURSE ARCADE' : chatgpt ? 'ENTER LIVE LAB' : claude ? 'ENTER ARTIFACT STUDIO' : arena ? 'ENTER THE OCTAGON' : 'ENTER HUMAN INSTINCTS'
   locationModal.classList.add('is-visible'); locationModal.setAttribute('aria-hidden','false')
   playRumble(state.activeGamepad,'success').catch(()=>{})
 }
@@ -1816,6 +2085,27 @@ const claudeSkillShop = createClaudeSkillShop({
   },
 })
 
+const upgradSkillShop = createUpgradSkillShop({
+  host: shell,
+  onClose() {
+    state.keys.clear()
+    state.paused = false
+    state.modalOpen = false
+    state.modalLocationId = null
+    renderer.domElement.focus({ preventScroll: true })
+  },
+  onReward(reward) {
+    savePill.textContent = `${reward.badge || 'COURSE CORE'} · UPGRAD CORE SAVED`
+    savePill.classList.add('is-visible')
+    clearTimeout(state.lastSave)
+    state.lastSave = setTimeout(() => {
+      savePill.classList.remove('is-visible')
+      savePill.textContent = 'CHECKPOINT SAVED'
+    }, 1700)
+  },
+  onHaptic: sendExperienceHaptic,
+})
+
 function sendExperienceHaptic(type) {
   const preset = type === 'impact' ? 'impact' : type === 'success' ? 'success' : 'select'
   playRumble(state.activeGamepad, preset).catch(() => {})
@@ -1865,6 +2155,16 @@ function launchClaudeSkillShop() {
   state.modalLocationId = null
   state.paused = true
   claudeSkillShop.launch()
+}
+
+function launchUpgradSkillShop() {
+  state.keys.clear()
+  locationModal.classList.remove('is-visible')
+  locationModal.setAttribute('aria-hidden', 'true')
+  state.modalOpen = false
+  state.modalLocationId = null
+  state.paused = true
+  upgradSkillShop.launch()
 }
 
 function launchVerseArena() {
@@ -2511,6 +2811,7 @@ function animate() {
   })
   cityUpgrade.update(dt, elapsed, player.position, state.started && !state.paused)
   transportUpgrade.update(dt, elapsed)
+  atmosphereUpgrade.update(elapsed, dt)
   arenaGame.update(dt)
   const drivenVehicle=state.drivingVehicle
   const drivenSpeedRatio=drivenVehicle?THREE.MathUtils.clamp(Math.abs(drivenVehicle.speed)/drivenVehicle.config.maxForward,0,1):0
@@ -2546,7 +2847,7 @@ function animate() {
   humanBuilding.rotation.y=Math.sin(elapsed*.18+1)*.003
   waypoint.userData.diamond.rotation.y=elapsed*1.35;waypoint.userData.diamond.position.y=5.5+Math.sin(elapsed*2.4)*.18;waypoint.userData.ring.scale.setScalar(1+Math.sin(elapsed*2.1)*.08)
   distantStars.rotation.y=elapsed*.0025;galaxyStars.rotation.y=elapsed*.0018
-  updateLabel('chatgpt',labelAnchors.chatgpt);updateLabel('human',labelAnchors.human);updateLabel('claude',labelAnchors.claude);updateLabel('arena',labelAnchors.arena);updateObjectiveVisuals()
+  updateLabel('upgrad',labelAnchors.upgrad);updateLabel('chatgpt',labelAnchors.chatgpt);updateLabel('human',labelAnchors.human);updateLabel('claude',labelAnchors.claude);updateLabel('arena',labelAnchors.arena);updateObjectiveVisuals()
   renderer.render(scene,camera)
   fpsFrames+=1;fpsElapsed+=dt
   if(fpsElapsed>=1){$('#performance-pill').textContent=`${Math.round(fpsFrames/fpsElapsed)} FPS · LIVE CITY`;fpsFrames=0;fpsElapsed=0}
@@ -2561,9 +2862,12 @@ const adapter = new GamepadAdapter({
   },
   onSnapshot(snapshot){state.gamepadMove=snapshot.move;state.gamepadCamera=snapshot.camera;state.gamepadButtons=snapshot.buttons},
   onAction(event){
+    if(upgradSkillShop.isOpen()){upgradSkillShop.handleGamepad(event);return}
     if(skillShop.isOpen()){skillShop.handleGamepad(event);return}
     if(claudeSkillShop.isOpen()){claudeSkillShop.handleGamepad(event);return}
     if(arenaGame.isOpen()){arenaGame.handleGamepad(event);return}
+    if(!state.started && [12,14].includes(event.index)){selectRelativeCharacter(-1);return}
+    if(!state.started && [13,15].includes(event.index)){selectRelativeCharacter(1);return}
     if(event.index===0){if(!state.started)$('#enter-world').click();else if(state.modalOpen)$('#modal-primary').click();else triggerJump()}
     if(event.index===3&&state.started){if(state.modalOpen)$('#modal-primary').click();else tryInteract()}
     if(event.index===1&&state.modalOpen)closeLocation()
@@ -2578,6 +2882,11 @@ adapter.start()
 
 window.addEventListener('keydown',(event)=>{
   if(event.code==='KeyM'){audio.toggle().catch(()=>{});event.preventDefault();return}
+  if(!state.started && !document.querySelector('#entry-screen')?.classList.contains('is-hidden')){
+    if(['ArrowLeft','ArrowUp'].includes(event.code)){selectRelativeCharacter(-1);event.preventDefault();return}
+    if(['ArrowRight','ArrowDown'].includes(event.code)){selectRelativeCharacter(1);event.preventDefault();return}
+  }
+  if(upgradSkillShop.isOpen()){upgradSkillShop.handleKey(event);return}
   if(skillShop.isOpen()){skillShop.handleKey(event);return}
   if(claudeSkillShop.isOpen()){claudeSkillShop.handleKey(event);return}
   if(arenaGame.isOpen()){arenaGame.handleKey(event);return}
@@ -2612,7 +2921,7 @@ renderer.domElement.addEventListener('pointerup',()=>{state.pointerDown=false})
 renderer.domElement.addEventListener('wheel',(event)=>{if(state.drivingVehicle)return;state.cameraDistanceTarget=THREE.MathUtils.clamp(state.cameraDistanceTarget+event.deltaY*.008,6.4,13.2);state.cameraInputTimer=1.2},{passive:true})
 
 audioState.addEventListener('click',()=>audio.toggle().catch(()=>{}))
-$('#enter-world').addEventListener('click',()=>{state.started=true;audio.start().catch(()=>{});cityUpgrade.startAudio().catch(()=>{});$('#entry-screen').classList.add('is-hidden');renderer.domElement.focus({preventScroll:true});playRumble(state.activeGamepad,'success').catch(()=>{})})
+$('#enter-world').addEventListener('click',()=>{state.started=true;audio.start().catch(()=>{});cityUpgrade.startAudio().catch(()=>{});$('#entry-screen').classList.add('is-hidden');characterPreviewRenderer.setAnimationLoop(null);renderer.domElement.focus({preventScroll:true});playRumble(state.activeGamepad,'success').catch(()=>{})})
 navigationToggle.addEventListener('click',()=>{
   const open=navigationPanel.classList.toggle('is-open')
   navigationToggle.setAttribute('aria-expanded',String(open))
@@ -2620,7 +2929,8 @@ navigationToggle.addEventListener('click',()=>{
 })
 $('#modal-close').addEventListener('click',closeLocation)
 $('#modal-primary').addEventListener('click',()=>{
-  if(state.modalLocationId==='chatgpt')launchChatGPTSkillShop()
+  if(state.modalLocationId==='upgrad')launchUpgradSkillShop()
+  else if(state.modalLocationId==='chatgpt')launchChatGPTSkillShop()
   else if(state.modalLocationId==='claude')launchClaudeSkillShop()
   else if(state.modalLocationId==='arena')launchVerseArena()
   else{
@@ -2662,6 +2972,10 @@ if(cityPreview==='arena'){
   state.started=true
   $('#entry-screen').classList.add('is-hidden')
   launchChatGPTSkillShop()
+}else if(skillShopPreview==='upgrad'){
+  state.started=true
+  $('#entry-screen').classList.add('is-hidden')
+  launchUpgradSkillShop()
 }else if(skillShopPreview==='entrance'){
   state.started=true
   $('#entry-screen').classList.add('is-hidden')

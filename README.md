@@ -7,8 +7,10 @@ Built for the OpenAI Build Week Education track.
 ## Playable experiences
 
 - Open 3D city with third-person traversal and a GTA-inspired camera.
+- Six-character cybernetic roster with a live 3D selector and persistent playable identity.
 - ChatGPT Skill Shop: model choice, context packaging and code-repair missions.
 - Claude Skill Shop: visual reasoning and artifact-building missions.
+- upGrad Skill Shop: three visual missions inspired by current Data Science, Full Stack Development and Digital Marketing programs.
 - Human Instincts district connection.
 - Verse Fight Ring: an original human-versus-machine combat simulation.
 - Drivable cars and motorcycles, city traffic, flying vehicles and elevated metro.
@@ -50,13 +52,13 @@ Inside the Verse Fight Ring:
 
 ## How Codex was used
 
-Codex was the production partner throughout the Build Week extension. It inspected and preserved the approved world scale, camera and DualSense feel; implemented driving physics and vehicle camera modes; integrated licensed GLB assets; built the two AI Skill Shops; created the multi-input and phone-controller system; added the city atmosphere, metro and aerial traffic; and built the combat simulation. Codex also ran production builds, local browser QA, performance checks, asset-attribution checks and prepared the submission package.
+Codex was the production partner throughout the Build Week extension. It inspected and preserved the approved world scale, camera and DualSense feel; implemented driving physics and vehicle camera modes; integrated licensed GLB assets; built the visual Skill Shops and six-character roster; created the multi-input and phone-controller system; added the city atmosphere, endless skyline, metro and aerial traffic; and built the combat simulation. Codex also ran production builds, local browser QA, performance checks, asset-attribution checks and prepared the submission package.
 
 Kish directed the product concept, learning model, interaction feel, visual taste and iterative play-test feedback. Codex translated those decisions into the working implementation.
 
 ## Pre-existing work versus Build Week work
 
-Before the submission period, the concept existed as an AtlasVerse/upGradVerse grey-box with an approved third-person character, central upGrad building, basic camera and DualSense traversal. During the Build Week submission period it was meaningfully extended into a coherent playable product: two complete AI Skill Shops, multiple visual mini-games, vehicle acquisition and driving, bikes, phone controls, original soundtrack integration, city traffic and ambience, expanded world navigation, fight arena, licensed environment and vehicle assets, performance work, submission documentation and a deployable build.
+Before the submission period, the concept existed as an AtlasVerse/upGradVerse grey-box with an approved third-person character, central upGrad building, basic camera and DualSense traversal. During the Build Week submission period it was meaningfully extended into a coherent playable product: three complete Skill Shops, multiple visual mini-games, a persistent six-character selector, vehicle acquisition and driving, bikes, phone controls, soundtrack integration, city traffic and atmosphere, expanded world navigation, fight arena, licensed environment and vehicle assets, performance work, submission documentation and a deployable build.
 
 ## Build and test
 
